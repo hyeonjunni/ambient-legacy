@@ -1,0 +1,31 @@
+﻿# App
+app/node_modules/
+app/.expo/
+app/eas-inspect-preview/
+app/eas-build-list.json
+app/eas-log-*.txt
+app/eas-archive-check/
+
+# Backend
+backend/.env
+backend/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Git backup
+app/.git.backup-before-root-repo/
+
+# Android local keys
+app/android/app/debug.keystore
+

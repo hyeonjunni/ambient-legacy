@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Ambient Legacy",
+    "slug": "ambient-legacy-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-video",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8c3b6e1b-5fdb-45eb-93fb-013068a58e95"
+      }
+    },
+    "android": {
+      "package": "com.sungbin_02.ambientlegacyapp"
+    },
+    "scheme": "ambientlegacy"
+  }
+}
