@@ -104,6 +104,63 @@
 
 ## 4. 이후 확장 API
 
+### GET `/ai/models`
+
+- 목적: 앱이 선택 가능한 모델 목록을 서버 기준으로 조회
+
+### GET `/ai/personas`
+
+- 목적: 앱이 선택 가능한 페르소나 목록을 서버 기준으로 조회
+
+### GET `/ai/runtime-status`
+
+- 목적: 현재 provider endpoint 설정 여부와 AI 런타임 상태를 확인
+
+### POST `/ai/chat-demo`
+
+- 목적: 선택 모델, 선택 페르소나, 가족방 기록을 기준으로 prompt package를 조립하고 provider adapter를 통해 응답 생성
+
+```json
+{
+  "room_id": "uuid",
+  "user_id": "uuid",
+  "model_id": "gemma-4-e2b-device",
+  "persona_id": "father-calm",
+  "query": "할아버지가 예전에 하셨던 조언을 요약해줘."
+}
+```
+
+### POST `/ai/demo-bootstrap`
+
+- 목적: 목요일 데모 시연용 가족방과 샘플 기록을 한 번에 생성
+
+```json
+{
+  "user_id": "uuid"
+}
+```
+
+응답 예시:
+
+```json
+{
+  "answer": "생성된 응답",
+  "answer_source": "fallback",
+  "inference_source": "device",
+  "provider_name": "gemma",
+  "provider_mode": "remote",
+  "provider_output_preview": "생성된 응답 일부",
+  "selected_model": {
+    "id": "gemma-4-e2b-device"
+  },
+  "retrieved_evidence": [
+    "- [image] 2026-04-28T12:00:00: 2024 가족 송년회"
+  ],
+  "persona_preview": "# Identity ...",
+  "prompt_package": {}
+}
+```
+
 ### POST `/pipeline/stt`
 
 - 목적: Whisper 기반 STT 처리
@@ -129,4 +186,3 @@
 5. `/families/{room_id}/members`
 6. `/uploads`
 7. `/uploads/{room_id}`
-

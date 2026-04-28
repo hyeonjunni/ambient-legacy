@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     db_pass: str = ""
     db_name: str = ""
     private_ip: bool = False
+    gemma_endpoint_url: str = ""
+    exaone_endpoint_url: str = ""
+    ai_provider_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",
