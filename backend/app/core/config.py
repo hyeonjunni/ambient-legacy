@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     private_ip: bool = False
     gemma_endpoint_url: str = ""
     exaone_endpoint_url: str = ""
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    prefer_ollama_for_gemma: bool = True
+    ollama_gemma_e2b_model_name: str = "gemma4:e2b"
+    ollama_gemma_e4b_model_name: str = "gemma4:e4b"
     ai_provider_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(

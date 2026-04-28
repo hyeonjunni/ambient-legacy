@@ -109,3 +109,42 @@ app/App.js
 -> output_text 정규화
 -> app에 answer + provider 상태 + evidence 반환
 ```
+
+## 5. Ollama Direct Contract
+
+Gemma를 맥북에서 가장 빠르게 붙이는 경로는 Ollama다.
+
+엔드포인트:
+
+```text
+POST {OLLAMA_BASE_URL}/api/chat
+```
+
+요청 본문:
+
+```json
+{
+  "model": "gemma4:e2b",
+  "stream": false,
+  "messages": [
+    {
+      "role": "system",
+      "content": "Use retrieved memories as primary evidence."
+    },
+    {
+      "role": "user",
+      "content": "Persona Markdown + Retrieved Evidence + User Query"
+    }
+  ]
+}
+```
+
+응답 예시:
+
+```json
+{
+  "message": {
+    "content": "생성된 응답"
+  }
+}
+```
