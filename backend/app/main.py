@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -14,12 +18,31 @@ app = FastAPI(
     description="Ambient Digital Legacy backend scaffold",
 )
 
+MEDIA_ROOT = Path(__file__).resolve().parent / 'storage'
+UPLOADS_ROOT = MEDIA_ROOT / 'uploads'
+UPLOADS_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+def ensure_user_profile_columns():
+    alter_statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_chunk TEXT",
+    ]
+
+    with engine.begin() as connection:
+        for statement in alter_statements:
+            connection.execute(text(statement))
+
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    ensure_user_profile_columns()
 
 
+app.mount('/media', StaticFiles(directory=str(MEDIA_ROOT)), name='media')
 app.include_router(api_router, prefix=settings.api_prefix)
 
 

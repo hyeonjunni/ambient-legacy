@@ -22,6 +22,13 @@ class FamilyMemberResponse(BaseModel):
     room_id: str
     user_id: str
     role: str
+    name: str
+    email: str
+    profile_image: str | None = None
+    age: int | None = None
+    gender: str | None = None
+    phone: str | None = None
+    profile_chunk: str | None = None
 
 
 class FamilyDetailResponse(FamilyResponse):

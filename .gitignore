@@ -29,3 +29,6 @@ app/.git.backup-before-root-repo/
 # Android local keys
 app/android/app/debug.keystore
 
+# Local generated artifacts
+app/android/.kotlin/
+backend/app/storage/

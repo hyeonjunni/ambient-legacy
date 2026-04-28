@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 
 
 class UploadCreateRequest(BaseModel):
@@ -25,4 +25,8 @@ class UploadResponse(BaseModel):
     title: str
     description: str | None = None
     status: str
-
+    created_at: str | None = None
+    has_file: bool = False
+    file_url: str | None = None
+    mime_type: str | None = None
+    file_size: int | None = None

@@ -1,12 +1,13 @@
-import uuid
+﻿import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import generate_invite_code
 from app.models.family import FamilyMember, FamilyRoom
+from app.models.upload import Upload, UploadFile
 from app.models.user import User
 from app.schemas.family import (
     FamilyCreateRequest,
@@ -18,6 +19,25 @@ from app.schemas.family import (
 
 
 router = APIRouter()
+
+
+@router.get("", response_model=list[FamilyResponse])
+def list_user_families(user_id: str = Query(...), db: Session = Depends(get_db)):
+    memberships = db.execute(
+        select(FamilyMember, FamilyRoom)
+        .join(FamilyRoom, FamilyRoom.id == FamilyMember.room_id)
+        .where(FamilyMember.user_id == user_id)
+    ).all()
+
+    return [
+        FamilyResponse(
+            room_id=room.id,
+            name=room.name,
+            invite_code=room.invite_code,
+            owner_user_id=room.owner_user_id,
+        )
+        for _member, room in memberships
+    ]
 
 
 @router.post("", response_model=FamilyResponse)
@@ -118,8 +138,10 @@ def list_family_members(room_id: str, db: Session = Depends(get_db)):
     if room is None:
         raise HTTPException(status_code=404, detail="Family room not found")
 
-    members = db.scalars(
-        select(FamilyMember).where(FamilyMember.room_id == room_id)
+    member_rows = db.execute(
+        select(FamilyMember, User)
+        .join(User, User.id == FamilyMember.user_id)
+        .where(FamilyMember.room_id == room_id)
     ).all()
 
     return [
@@ -127,6 +149,32 @@ def list_family_members(room_id: str, db: Session = Depends(get_db)):
             room_id=member.room_id,
             user_id=member.user_id,
             role=member.role,
+            name=user.name,
+            email=user.email,
+            profile_image=user.profile_image,
+            age=user.age,
+            gender=user.gender,
+            phone=user.phone,
+            profile_chunk=user.profile_chunk,
         )
-        for member in members
+        for member, user in member_rows
     ]
+
+
+@router.delete("/{room_id}")
+def delete_family(room_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+    room = db.get(FamilyRoom, room_id)
+    if room is None:
+        raise HTTPException(status_code=404, detail="Family room not found")
+
+    if room.owner_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the room owner can delete this family room")
+
+    db.query(UploadFile).filter(UploadFile.upload_id.in_(select(Upload.id).where(Upload.room_id == room_id))).delete(synchronize_session=False)
+    db.query(Upload).filter(Upload.room_id == room_id).delete(synchronize_session=False)
+    db.query(FamilyMember).filter(FamilyMember.room_id == room_id).delete()
+    db.delete(room)
+    db.commit()
+
+    return {"deleted": True, "room_id": room_id}
+

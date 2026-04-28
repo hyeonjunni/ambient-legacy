@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://user:password@localhost:5432/ambient_legacy"
     gcs_bucket_name: str = "ambient-legacy"
+    gcp_project_id: str = ""
+    use_gcs_media_storage: bool = True
     use_cloud_sql_connector: bool = False
     instance_connection_name: str = ""
     db_user: str = ""
