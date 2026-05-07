@@ -13,6 +13,8 @@
 
 - `docs/erd.md`: 1차 ERD 초안
 - `docs/api_spec.md`: 1차 API 명세
+- `docs/provider_contracts.md`: Gemma / EXAONE provider 호출 계약
+- `docs/demo_runbook.md`: 로컬 데모 실행 절차
 - `app/`: FastAPI 백엔드 스캐폴드
 - `requirements.txt`: 초기 의존성 목록
 - `.env.example`: Cloud SQL 및 GCS 환경 변수 예시
