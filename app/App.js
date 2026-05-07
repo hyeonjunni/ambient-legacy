@@ -172,6 +172,18 @@ function getReadableErrorMessage(error, fallbackMessage) {
     return `${fallbackMessage}\\n\\n${getNetworkGuidanceMessage()}`;
   }
 
+  if (Array.isArray(error)) {
+    return error.map((item) => getReadableErrorMessage(item, fallbackMessage)).join("\n");
+  }
+
+  if (error && typeof error === "object" && !error.message) {
+    try {
+      return JSON.stringify(error, null, 2);
+    } catch (_error) {
+      return fallbackMessage;
+    }
+  }
+
   return error?.message || fallbackMessage;
 }
 
@@ -214,6 +226,22 @@ async function syncUserToBackend(payload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+async function loginDemoUserToBackend() {
+  return apiRequest("/auth/demo", {
+    method: "POST",
+  });
+}
+
+function buildFallbackEmail(identityValue) {
+  const normalized = String(identityValue || "user")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${normalized || "user"}@ambientlegacy.app`;
 }
 
 async function fetchFamilyMembers(roomId) {
@@ -570,6 +598,7 @@ export default function App() {
 
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
+      androidClientId: GOOGLE_ANDROID_CLIENT_ID,
       scopes: ["profile", "email"],
     });
   }, [googleAuthReady]);
@@ -770,9 +799,11 @@ export default function App() {
       return currentUser;
     }
 
+    const resolvedIdentity = currentUser.googleSub || currentUser.email || currentUser.id || "user";
+    const resolvedEmail = currentUser.email || buildFallbackEmail(resolvedIdentity);
     const syncPayload = {
-      google_sub: currentUser.googleSub || currentUser.email || currentUser.id,
-      email: currentUser.email || "",
+      google_sub: resolvedIdentity,
+      email: resolvedEmail,
       name: currentUser.name || currentUser.email || "\uc0ac\uc6a9\uc790",
       profile_image: currentUser.picture || null,
     };
@@ -821,10 +852,10 @@ export default function App() {
       }
 
       const provisionalUser = {
-        id: profile.id || profile.email,
-        googleSub: profile.id || profile.email,
+        id: profile.id || profile.email || profile.name || "google-user",
+        googleSub: profile.id || profile.email || profile.name || "google-user",
         name: profile.name || profile.email || "Google User",
-        email: profile.email || "",
+        email: profile.email || buildFallbackEmail(profile.id || profile.name || "google-user"),
         picture: profile.photo || null,
         isBackendSynced: false,
       };
@@ -846,21 +877,24 @@ export default function App() {
   }
 
   async function handleDemoLogin() {
-    const provisionalUser = {
-      id: "demo-user",
-      googleSub: "demo-user",
-      name: "\ub370\ubaa8 \uc0ac\uc6a9\uc790",
-      email: "demo@ambient.local",
-      picture: null,
-      isBackendSynced: false,
-    };
-
     try {
-      setUser(provisionalUser);
-      const backendUser = await ensureBackendUser(provisionalUser);
-      if (!backendUser?.id) {
+      const backendUser = await loginDemoUserToBackend();
+      if (!backendUser?.user_id) {
         throw new Error("\ubc31\uc5d4\ub4dc \uc0ac\uc6a9\uc790 \ub3d9\uae30\ud654\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4.");
       }
+
+      setUser({
+        id: backendUser.user_id,
+        googleSub: "demo-user",
+        name: backendUser.name || "\ub370\ubaa8 \uc0ac\uc6a9\uc790",
+        email: backendUser.email || "demo@ambient.local",
+        picture: backendUser.profile_image || null,
+        age: backendUser.age || null,
+        gender: backendUser.gender || null,
+        phone: backendUser.phone || null,
+        profileChunk: backendUser.profile_chunk || null,
+        isBackendSynced: true,
+      });
     } catch (error) {
       setUser(null);
       Alert.alert("\ub370\ubaa8 \ub85c\uadf8\uc778 \uc2e4\ud328", getReadableErrorMessage(error, "\ubc31\uc5d4\ub4dc \uc0ac\uc6a9\uc790 \ub3d9\uae30\ud654\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4."));
@@ -3317,10 +3351,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
-
-
-
 
 
 

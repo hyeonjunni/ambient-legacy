@@ -76,6 +76,11 @@ def get_runtime_status():
         configured_models=[model.id for model in MODEL_REGISTRY],
         gemma_endpoint_configured=bool(settings.gemma_endpoint_url),
         exaone_endpoint_configured=bool(settings.exaone_endpoint_url),
+        prefer_ollama_for_gemma=settings.prefer_ollama_for_gemma,
+        ollama_base_url=settings.ollama_base_url,
+        cloud_sql_connector_enabled=settings.use_cloud_sql_connector,
+        gcs_media_storage_enabled=settings.use_gcs_media_storage,
+        gcp_credentials_path_configured=bool(settings.gcp_credentials_path),
         provider_timeout_seconds=settings.ai_provider_timeout_seconds,
         persona_count=len(list_persona_options()),
     )

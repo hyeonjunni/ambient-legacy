@@ -46,12 +46,19 @@ def get_gcs_client():
 
     try:
         from google.cloud import storage
+        from google.oauth2 import service_account
     except ImportError:
         return None
 
     project_id = resolve_gcp_project_id()
     if not project_id:
         return None
+
+    if settings.gcp_credentials_path:
+        credentials_path = Path(settings.gcp_credentials_path).expanduser()
+        if credentials_path.exists():
+            credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+            return storage.Client(project=project_id, credentials=credentials)
 
     return storage.Client(project=project_id)
 

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -24,16 +24,19 @@ UPLOADS_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def ensure_user_profile_columns():
-    alter_statements = [
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_chunk TEXT",
-    ]
-
     with engine.begin() as connection:
-        for statement in alter_statements:
-            connection.execute(text(statement))
+        inspector = inspect(connection)
+        existing_columns = {column["name"] for column in inspector.get_columns("users")}
+        column_statements = {
+            "age": "ALTER TABLE users ADD COLUMN age INTEGER",
+            "gender": "ALTER TABLE users ADD COLUMN gender VARCHAR",
+            "phone": "ALTER TABLE users ADD COLUMN phone VARCHAR",
+            "profile_chunk": "ALTER TABLE users ADD COLUMN profile_chunk TEXT",
+        }
+
+        for column_name, statement in column_statements.items():
+            if column_name not in existing_columns:
+                connection.execute(text(statement))
 
 
 @app.on_event("startup")

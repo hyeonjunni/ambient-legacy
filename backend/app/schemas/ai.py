@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AIDemoChatRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     room_id: str
     user_id: str
     model_id: str
@@ -53,5 +54,10 @@ class AIRuntimeStatusResponse(BaseModel):
     configured_models: list[str]
     gemma_endpoint_configured: bool
     exaone_endpoint_configured: bool
+    prefer_ollama_for_gemma: bool
+    ollama_base_url: str
+    cloud_sql_connector_enabled: bool
+    gcs_media_storage_enabled: bool
+    gcp_credentials_path_configured: bool
     provider_timeout_seconds: int
     persona_count: int

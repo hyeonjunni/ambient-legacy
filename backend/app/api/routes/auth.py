@@ -36,28 +36,61 @@ def serialize_user(user: User) -> UserResponse:
     )
 
 
-@router.post("/google", response_model=UserResponse)
-def google_auth_sync(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.google_sub == payload.google_sub))
+def upsert_google_user(
+    *,
+    db: Session,
+    google_sub: str,
+    email: str,
+    name: str,
+    profile_image: str | None = None,
+) -> User:
+    user = db.scalar(select(User).where(User.google_sub == google_sub))
 
     if user is None:
         user = User(
             id=str(uuid.uuid4()),
-            google_sub=payload.google_sub,
-            email=payload.email,
-            name=payload.name,
-            profile_image=payload.profile_image,
+            google_sub=google_sub,
+            email=email,
+            name=name,
+            profile_image=profile_image,
         )
         db.add(user)
     else:
-        user.email = str(payload.email)
-        user.name = payload.name
-        user.profile_image = payload.profile_image
+        user.google_sub = google_sub
+        user.email = email
+        user.name = name
+        user.profile_image = profile_image
 
     user.profile_chunk = build_profile_chunk(user.name, user.age, user.gender, user.phone, user.email)
-
     db.commit()
     db.refresh(user)
+    return user
+
+
+@router.post("/google", response_model=UserResponse)
+def google_auth_sync(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
+    normalized_sub = (payload.google_sub or payload.email or payload.name or "google-user").strip()
+    fallback_email = payload.email or f"{normalized_sub}@ambientlegacy.app"
+    fallback_name = payload.name or payload.email or "Google User"
+    user = upsert_google_user(
+        db=db,
+        google_sub=normalized_sub,
+        email=str(fallback_email),
+        name=str(fallback_name),
+        profile_image=payload.profile_image,
+    )
+    return serialize_user(user)
+
+
+@router.post("/demo", response_model=UserResponse)
+def demo_auth_sync(db: Session = Depends(get_db)):
+    user = upsert_google_user(
+        db=db,
+        google_sub="demo-user",
+        email="demo@ambientlegacy.app",
+        name="데모 사용자",
+        profile_image=None,
+    )
     return serialize_user(user)
 
 

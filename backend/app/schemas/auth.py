@@ -2,9 +2,9 @@ from pydantic import BaseModel, EmailStr
 
 
 class GoogleAuthRequest(BaseModel):
-    google_sub: str
-    email: EmailStr
-    name: str
+    google_sub: str | None = None
+    email: EmailStr | None = None
+    name: str | None = None
     profile_image: str | None = None
 
 
