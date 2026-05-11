@@ -48,6 +48,7 @@ class AIDemoBootstrapResponse(BaseModel):
     room_id: str
     room_name: str
     seeded_uploads: int
+    seeded_files: int
 
 
 class AIRuntimeStatusResponse(BaseModel):

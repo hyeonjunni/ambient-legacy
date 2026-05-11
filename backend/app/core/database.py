@@ -70,3 +70,10 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def close_connector():
+    global connector
+    if connector is not None:
+        connector.close()
+        connector = None
