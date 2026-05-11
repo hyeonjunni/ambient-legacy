@@ -6,7 +6,7 @@ from sqlalchemy import inspect, text
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import Base, close_connector, engine
 from app.models.family import FamilyMember, FamilyRoom
 from app.models.upload import Upload, UploadFile
 from app.models.user import User
@@ -43,6 +43,11 @@ def ensure_user_profile_columns():
 def on_startup():
     Base.metadata.create_all(bind=engine)
     ensure_user_profile_columns()
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    close_connector()
 
 
 app.mount('/media', StaticFiles(directory=str(MEDIA_ROOT)), name='media')

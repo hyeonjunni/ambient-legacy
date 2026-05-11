@@ -244,6 +244,30 @@ function buildFallbackEmail(identityValue) {
   return `${normalized || "user"}@ambientlegacy.app`;
 }
 
+function parseTagInput(value) {
+  return Array.from(
+    new Set(
+      String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function buildDefaultTagsForType(typeKey) {
+  if (typeKey === "image") {
+    return ["이미지", "가족기록"];
+  }
+  if (typeKey === "video") {
+    return ["영상", "가족기록"];
+  }
+  if (typeKey === "voice") {
+    return ["음성", "가족기록"];
+  }
+  return ["텍스트", "가족기록"];
+}
+
 async function fetchFamilyMembers(roomId) {
   return apiRequest(`/families/${roomId}/members`);
 }
@@ -363,6 +387,7 @@ function mapUploadToRecord(upload) {
     type: upload.type,
     title: upload.title,
     detail: upload.description || "?? ?? ??",
+    tags: Array.isArray(upload.tags) ? upload.tags : [],
     createdAt: formatRecordDate(upload.created_at),
     fileUrl: upload.file_url || null,
     mimeType: upload.mime_type || null,
@@ -429,6 +454,7 @@ export default function App() {
   const [modalVisible, setModalVisible] = useState(false);
   const [formTitle, setFormTitle] = useState("");
   const [formDetail, setFormDetail] = useState("");
+  const [formTags, setFormTags] = useState("");
   const [familyRooms, setFamilyRooms] = useState([]);
   const [activeFamilyId, setActiveFamilyId] = useState(null);
   const [user, setUser] = useState(null);
@@ -781,7 +807,7 @@ export default function App() {
       setActiveTab("chat");
       Alert.alert(
         "데모 데이터 준비 완료",
-        `${bootstrapResult.room_name}에 ${bootstrapResult.seeded_uploads}개의 샘플 기록을 준비했습니다.`
+        `${bootstrapResult.room_name}에 ${bootstrapResult.seeded_uploads}개의 샘플 기록과 ${bootstrapResult.seeded_files || 0}개의 파일을 준비했습니다.`
       );
     } catch (error) {
       Alert.alert("데모 준비 실패", getReadableErrorMessage(error, "데모 시나리오를 준비하지 못했습니다."));
@@ -887,7 +913,7 @@ export default function App() {
         id: backendUser.user_id,
         googleSub: "demo-user",
         name: backendUser.name || "\ub370\ubaa8 \uc0ac\uc6a9\uc790",
-        email: backendUser.email || "demo@ambient.local",
+        email: backendUser.email || "demo@ambientlegacy.app",
         picture: backendUser.profile_image || null,
         age: backendUser.age || null,
         gender: backendUser.gender || null,
@@ -1120,6 +1146,7 @@ async function handleLogout() {
     setSelectedType(typeKey);
     setFormTitle("");
     setFormDetail("");
+    setFormTags("");
     setModalVisible(true);
   }
 
@@ -1171,6 +1198,7 @@ async function handleLogout() {
         type: typeKey,
         title: fileName,
         description: meta || `${label} 파일 업로드`,
+        tags: buildDefaultTagsForType(typeKey),
       });
       await uploadMediaBinary(uploadEntry.upload_id, ensuredUser.id, asset);
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
@@ -1188,6 +1216,7 @@ async function handleLogout() {
     setSelectedType(null);
     setFormTitle("");
     setFormDetail("");
+    setFormTags("");
   }
 
   async function handleOpenMedia(item) {
@@ -1224,6 +1253,7 @@ async function handleLogout() {
         type: selectedType,
         title: formTitle.trim(),
         description: formDetail.trim() || "추가 설명 없음",
+        tags: parseTagInput(formTags).length > 0 ? parseTagInput(formTags) : buildDefaultTagsForType(selectedType),
       });
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
       closeUploadModal();
@@ -1414,6 +1444,17 @@ async function handleLogout() {
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>태그</Text>
+              <TextInput
+                value={formTags}
+                onChangeText={setFormTags}
+                placeholder="예: OCR, 송년회, 가족행사"
+                placeholderTextColor="#94A3B8"
+                style={styles.textInput}
+              />
+            </View>
+
             <View style={styles.modalButtons}>
               <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={closeUploadModal}>
                 <Text style={styles.cancelButtonText}>취소</Text>
@@ -1470,7 +1511,11 @@ function LoginScreen({
     <SafeAreaView style={[styles.safeArea, styles.loginSafeArea]}>
       <ExpoStatusBar style="light" />
       <StatusBar barStyle="light-content" />
-      <View style={styles.loginScreen}>
+      <ScrollView
+        contentContainerStyle={styles.loginScreen}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.loginHero}>
           <Text style={styles.loginEyebrow}>Ambient Digital Legacy</Text>
           <Text style={styles.loginTitle}>{"\uac00\uc871 \uae30\ub85d\uc744\n\uc548\uc804\ud558\uac8c \ubcf4\uad00\ud558\ub294 \uc571"}</Text>
@@ -1521,7 +1566,7 @@ function LoginScreen({
             </Text>
           ) : null}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1667,6 +1712,20 @@ function ChatDemoScreen({
         <Pressable style={[styles.demoScenarioButton, busy && styles.disabledButton]} onPress={onPrepareDemoScenario} disabled={busy}>
           <Text style={styles.demoScenarioButtonText}>{busy ? "데모 준비 중..." : "데모 데이터 준비"}</Text>
         </Pressable>
+      </View>
+
+      <View style={styles.pipelineCard}>
+        <Text style={styles.pipelineTitle}>현재 데모 파이프라인</Text>
+        <Text style={styles.pipelineDescription}>
+          Cloud SQL에 기록 메타데이터를 저장하고, 이미지 파일은 GCS에 올리며, 태그와 OCR 문맥을 함께 Gemma 검색 근거에 연결합니다.
+        </Text>
+        <View style={styles.pipelineChipRow}>
+          {["Cloud SQL", "GCS 이미지 저장", "태그 기반 검색", "Gemma 응답"].map((item) => (
+            <View key={item} style={styles.pipelineChip}>
+              <Text style={styles.pipelineChipText}>{item}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.aiConfigCard}>
@@ -1857,6 +1916,15 @@ function StorageScreen({ groupedRecords, onViewMedia }) {
                     <Text style={styles.recordDate}>{item.createdAt}</Text>
                   </View>
                   <Text style={styles.recordDetail}>{item.detail}</Text>
+                  {item.tags?.length ? (
+                    <View style={styles.tagRow}>
+                      {item.tags.map((tag) => (
+                        <View key={`${item.id}-${tag}`} style={styles.tagChip}>
+                          <Text style={styles.tagChipText}>{`#${tag}`}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                   {canViewMedia ? (
                     <Pressable style={styles.mediaViewButton} onPress={() => onViewMedia(item)}>
                       <Text style={styles.mediaViewButtonText}>{item.type === "image" ? "사진 보기" : "영상 보기"}</Text>
@@ -2134,12 +2202,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F172A",
   },
   loginScreen: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 44,
-    paddingBottom: 34,
+    paddingBottom: 56,
     backgroundColor: "#0F172A",
+    gap: 28,
   },
   loginHero: {
     gap: 16,
@@ -2349,7 +2418,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 22,
     paddingTop: 4,
-    paddingBottom: 34,
+    paddingBottom: 112,
     gap: 18,
   },
   heroCard: {
@@ -2485,6 +2554,40 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 18,
+  },
+  pipelineCard: {
+    backgroundColor: "#E0F2FE",
+    borderRadius: 24,
+    padding: 18,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  pipelineTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0C4A6E",
+  },
+  pipelineDescription: {
+    color: "#075985",
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  pipelineChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  pipelineChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+  },
+  pipelineChipText: {
+    color: "#0369A1",
+    fontSize: 12,
+    fontWeight: "800",
   },
   demoScenarioButton: {
     marginTop: 14,
@@ -2737,7 +2840,7 @@ const styles = StyleSheet.create({
   },
   storageListContent: {
     paddingHorizontal: 22,
-    paddingBottom: 34,
+    paddingBottom: 112,
     gap: 16,
   },
   profileCard: {
@@ -3091,12 +3194,29 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: "#475569",
   },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  tagChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#E0F2FE",
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369A1",
+  },
   tabBar: {
     flexDirection: "row",
     gap: 6,
     paddingHorizontal: 10,
     paddingTop: 10,
-    paddingBottom: 14,
+    paddingBottom: 22,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
@@ -3351,14 +3471,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
-
-
-
-
-
-
-
 
 
 

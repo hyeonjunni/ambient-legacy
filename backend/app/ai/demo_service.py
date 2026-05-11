@@ -8,7 +8,7 @@ from app.ai.provider_factory import get_provider_for_model
 from app.ai.providers.base import InferenceRequest
 from app.ai.persona_loader import load_persona_pack
 from app.ai.prompt_builder import RetrievalChunk, build_prompt_package
-from app.api.routes.uploads import ensure_room_member
+from app.api.routes.uploads import ensure_room_member, unpack_description_and_tags
 from app.models.upload import Upload
 
 
@@ -81,7 +81,15 @@ def retrieve_room_chunks(db: Session, room_id: str, user_id: str, query: str, li
 
     scored: list[tuple[int, Upload]] = []
     for upload in uploads:
-        haystack = f"{upload.title or ''} {upload.description or ''} {upload.type or ''}"
+        clean_description, upload_tags = unpack_description_and_tags(upload.description)
+        haystack = " ".join(
+            [
+                upload.title or "",
+                clean_description or "",
+                upload.type or "",
+                " ".join(upload_tags),
+            ]
+        )
         score = sum(1 for term in query_terms if term and term in haystack)
         if score > 0:
             scored.append((score, upload))
@@ -93,8 +101,8 @@ def retrieve_room_chunks(db: Session, room_id: str, user_id: str, query: str, li
         RetrievalChunk(
             source_type=upload.type,
             timestamp=upload.created_at.isoformat() if upload.created_at else "",
-            text=f"{upload.title} {upload.description or ''}".strip(),
-            tags=[upload.type, "family-room"],
+            text=f"{upload.title} {(unpack_description_and_tags(upload.description)[0] or '')}".strip(),
+            tags=[upload.type, "family-room", *unpack_description_and_tags(upload.description)[1]],
             confidence=0.75,
         )
         for upload in selected_uploads

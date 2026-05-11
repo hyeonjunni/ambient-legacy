@@ -31,6 +31,10 @@ app/android/app/debug.keystore
 
 # Local generated artifacts
 app/android/.kotlin/
+app/android/.gradle-user/
+app/android/gradle-build.log
+app/android/app/debug.keystore.bak
 backend/app/storage/
+backend/ambient_legacy_demo.db
 .ollama-home/
 .ollama-models/

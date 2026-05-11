@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel
+﻿from pydantic import BaseModel, Field
 
 
 class UploadCreateRequest(BaseModel):
@@ -7,6 +7,7 @@ class UploadCreateRequest(BaseModel):
     type: str
     title: str
     description: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class UploadFileRequest(BaseModel):
@@ -24,6 +25,7 @@ class UploadResponse(BaseModel):
     type: str
     title: str
     description: str | None = None
+    tags: list[str] = Field(default_factory=list)
     status: str
     created_at: str | None = None
     has_file: bool = False
