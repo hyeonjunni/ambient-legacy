@@ -3,8 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -134,9 +137,14 @@ const STORAGE_KEYS = {
 };
 
 const GOOGLE_WEB_CLIENT_ID = "279745599452-9tlm7fg2mndf6jk8nqo05cclh3hq0r9u.apps.googleusercontent.com";
-const GOOGLE_ANDROID_CLIENT_ID = "279745599452-pgln185p4sc73bdrj8vv7ptk42j4nemp.apps.googleusercontent.com";
-const DEFAULT_API_BASE_URL = "http://172.30.1.41:8000/api/v1";
+const DEFAULT_API_BASE_URL = "http://192.168.0.234:8000/api/v1";
 let runtimeApiBaseUrl = DEFAULT_API_BASE_URL;
+const KEYBOARD_AVOIDING_BEHAVIOR = Platform.OS === "ios" ? "padding" : undefined;
+const COMMON_SINGLE_LINE_INPUT_PROPS = {
+  returnKeyType: "done",
+  blurOnSubmit: true,
+  onSubmitEditing: Keyboard.dismiss,
+};
 
 function normalizeApiBaseUrl(value) {
   const trimmed = (value || "").trim();
@@ -279,6 +287,12 @@ async function fetchUserFamilies(userId) {
 
 async function deleteFamily(roomId, userId) {
   return apiRequest(`/families/${roomId}?user_id=${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+async function deleteUploadRecord(uploadId, userId) {
+  return apiRequest(`/uploads/${uploadId}?user_id=${encodeURIComponent(userId)}`, {
     method: "DELETE",
   });
 }
@@ -465,8 +479,14 @@ export default function App() {
   const [profileDraft, setProfileDraft] = useState(buildProfileDraft(null));
   const [profileSaving, setProfileSaving] = useState(false);
   const [uploadSaving, setUploadSaving] = useState(false);
+  const [uploadSavingMessage, setUploadSavingMessage] = useState("업로드 중입니다.");
+  const [uploadResult, setUploadResult] = useState(null);
+  const [pendingDeleteRecord, setPendingDeleteRecord] = useState(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteSavingMessage, setDeleteSavingMessage] = useState("기록을 삭제하고 있습니다.");
   const [authLoading, setAuthLoading] = useState(false);
   const [authLoadingMessage, setAuthLoadingMessage] = useState("로그인 정보를 확인하고 있습니다.");
+  const [sessionRestoreLoading, setSessionRestoreLoading] = useState(false);
   const [availableModels, setAvailableModels] = useState(modelOptions);
   const [availablePersonas, setAvailablePersonas] = useState(personaOptions);
   const [selectedModelId, setSelectedModelId] = useState(modelOptions[0].id);
@@ -503,8 +523,9 @@ export default function App() {
           AsyncStorage.getItem(STORAGE_KEYS.selectedPersonaId),
         ]);
 
+        let restoredUser = null;
         if (savedUser) {
-          setUser(JSON.parse(savedUser));
+          restoredUser = JSON.parse(savedUser);
         }
         if (savedApiBaseUrl) {
           const normalizedApiBaseUrl = setRuntimeApiBaseUrl(savedApiBaseUrl);
@@ -517,6 +538,19 @@ export default function App() {
         }
         if (savedPersonaId && personaOptions.some((item) => item.id === savedPersonaId)) {
           setSelectedPersonaId(savedPersonaId);
+        }
+
+        if (restoredUser) {
+          setSessionRestoreLoading(true);
+          try {
+            const syncedUser = await ensureBackendUser(restoredUser, { force: true });
+            setUser(syncedUser);
+          } catch (_error) {
+            await AsyncStorage.removeItem(STORAGE_KEYS.user);
+            setUser(null);
+          } finally {
+            setSessionRestoreLoading(false);
+          }
         }
       } catch (_error) {
         Alert.alert("\uc800\uc7a5\ub41c \ub370\uc774\ud130 \ub85c\ub4dc \uc2e4\ud328", "\ub85c\uceec\uc5d0 \uc800\uc7a5\ub41c \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.");
@@ -627,7 +661,6 @@ export default function App() {
 
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
-      androidClientId: GOOGLE_ANDROID_CLIENT_ID,
       scopes: ["profile", "email"],
     });
   }, [googleAuthReady]);
@@ -684,7 +717,7 @@ export default function App() {
   }, [user?.id, storageLoaded]);
 
   useEffect(() => {
-    if (!storageLoaded) {
+    if (!storageLoaded || sessionRestoreLoading) {
       return;
     }
 
@@ -695,7 +728,7 @@ export default function App() {
     }
 
     setProfileModalVisible(false);
-  }, [user, storageLoaded]);
+  }, [user, storageLoaded, sessionRestoreLoading]);
 
   useEffect(() => {
     if (activeTab !== "mypage" || !user || familyRooms.length === 0) {
@@ -802,6 +835,7 @@ export default function App() {
 
     try {
       setUploadSaving(true);
+      setUploadSavingMessage("데모 데이터를 준비하고 있습니다.");
       const ensuredUser = await ensureBackendUser(user, { force: true });
       const bootstrapResult = await bootstrapAIDemo({ user_id: ensuredUser.id });
       await refreshFamilyRoomsFromBackend();
@@ -816,6 +850,7 @@ export default function App() {
       Alert.alert("데모 준비 실패", getReadableErrorMessage(error, "데모 시나리오를 준비하지 못했습니다."));
     } finally {
       setUploadSaving(false);
+      setUploadSavingMessage("업로드 중입니다.");
     }
   }
 
@@ -1164,6 +1199,25 @@ async function handleLogout() {
     setModalVisible(true);
   }
 
+  function showUploadResult(title, message) {
+    setUploadResult({ title, message });
+  }
+
+  function closeUploadResult() {
+    setUploadResult(null);
+  }
+
+  function openDeleteRecordConfirm(item) {
+    setPendingDeleteRecord(item);
+  }
+
+  function closeDeleteRecordConfirm() {
+    if (deleteSaving) {
+      return;
+    }
+    setPendingDeleteRecord(null);
+  }
+
   async function pickMediaFile(typeKey) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -1205,6 +1259,7 @@ async function handleLogout() {
       }
 
       setUploadSaving(true);
+      setUploadSavingMessage(`${label}를 업로드하고 있습니다.`);
       const ensuredUser = await ensureBackendUser(user, { force: true });
       const uploadEntry = await createUploadEntry({
         room_id: activeFamily.id,
@@ -1217,11 +1272,12 @@ async function handleLogout() {
       await uploadMediaBinary(uploadEntry.upload_id, ensuredUser.id, asset);
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
       setActiveTab("storage");
-      Alert.alert("업로드 완료", `${label} 업로드 정보와 파일이 가족방에 저장되었습니다.`);
+      showUploadResult("업로드 완료", `${label} 업로드 정보와 파일이 가족방에 저장되었습니다.`);
     } catch (error) {
       Alert.alert("업로드 실패", getReadableErrorMessage(error, `${label} 업로드 정보를 저장하지 못했습니다.`));
     } finally {
       setUploadSaving(false);
+      setUploadSavingMessage("업로드 중입니다.");
     }
   }
 
@@ -1260,6 +1316,7 @@ async function handleLogout() {
 
     try {
       setUploadSaving(true);
+      setUploadSavingMessage(`${selectedTypeInfo?.label || "기록"} 업로드 정보를 저장하고 있습니다.`);
       const ensuredUser = await ensureBackendUser(user, { force: true });
       await createUploadEntry({
         room_id: activeFamily.id,
@@ -1272,18 +1329,40 @@ async function handleLogout() {
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
       closeUploadModal();
       setActiveTab("storage");
-      Alert.alert("업로드 완료", "업로드 정보가 가족방 기준으로 저장되었습니다.");
+      showUploadResult("업로드 완료", "업로드 정보가 가족방 기준으로 저장되었습니다.");
     } catch (error) {
       Alert.alert("업로드 저장 실패", getReadableErrorMessage(error, "업로드 정보를 저장하지 못했습니다."));
     } finally {
       setUploadSaving(false);
+      setUploadSavingMessage("업로드 중입니다.");
+    }
+  }
+
+  async function handleDeleteRecord() {
+    if (!pendingDeleteRecord?.id || !activeFamily?.id) {
+      return;
+    }
+
+    try {
+      setDeleteSaving(true);
+      setDeleteSavingMessage(`${pendingDeleteRecord.title || "기록"}을 삭제하고 있습니다.`);
+      const ensuredUser = await ensureBackendUser(user, { force: true });
+      await deleteUploadRecord(pendingDeleteRecord.id, ensuredUser.id);
+      setPendingDeleteRecord(null);
+      await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
+      showUploadResult("삭제 완료", "선택한 기록이 저장소와 클라우드에서 정리되었습니다.");
+    } catch (error) {
+      Alert.alert("기록 삭제 실패", getReadableErrorMessage(error, "기록을 삭제하지 못했습니다."));
+    } finally {
+      setDeleteSaving(false);
+      setDeleteSavingMessage("기록을 삭제하고 있습니다.");
     }
   }
 
   const selectedTypeInfo = uploadTypes.find((item) => item.key === selectedType);
   const profileFormComplete = isProfileFormComplete(profileDraft);
 
-  if (!storageLoaded) {
+  if (!storageLoaded || sessionRestoreLoading) {
     return <LoadingScreen />;
   }
 
@@ -1331,7 +1410,13 @@ async function handleLogout() {
               busy={uploadSaving}
             />
           )}
-          {activeTab === "storage" && <StorageScreen groupedRecords={groupedRecords} onViewMedia={handleOpenMedia} />}
+          {activeTab === "storage" && (
+            <StorageScreen
+              groupedRecords={groupedRecords}
+              onViewMedia={handleOpenMedia}
+              onDeleteRecord={openDeleteRecordConfirm}
+            />
+          )}
           {activeTab === "mypage" && (
             <MyPageScreen
               user={user}
@@ -1350,7 +1435,16 @@ async function handleLogout() {
       </View>
 
       <Modal transparent visible={profileModalVisible} onRequestClose={() => {}}>
-        <View style={styles.centerModalBackdrop}>
+        <KeyboardAvoidingView
+          style={styles.centerModalBackdrop}
+          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
+        >
+          <ScrollView
+            contentContainerStyle={styles.centerModalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           <View style={styles.profileModalSheet}>
             <Text style={styles.modalTitle}>{"\uac1c\uc778\uc815\ubcf4 \uc785\ub825"}</Text>
             <Text style={styles.modalDescription}>{"\uad6c\uae00 \ub85c\uadf8\uc778 \ud6c4 \uac00\uc871 \uba64\ubc84 \uc0c1\uc138\uc815\ubcf4\uc5d0 \uc0ac\uc6a9\ud560 \uae30\ubcf8 \uc815\ubcf4\ub97c \uc785\ub825\ud574\uc8fc\uc138\uc694. \uc800\uc7a5 \uc2dc \ud504\ub85c\ud544 \uccad\ud06c\ub85c \ud568\uaed8 \ubcf4\uad00\ub429\ub2c8\ub2e4."}</Text>
@@ -1359,6 +1453,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{"\uc774\ub984"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={profileDraft.name}
                 onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
                 placeholder="\uc608: \ud64d\uae38\ub3d9"
@@ -1370,6 +1465,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{"\ub098\uc774"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={profileDraft.age}
                 onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, age: value }))}
                 placeholder="\uc608: 24"
@@ -1397,6 +1493,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{"\ud734\ub300\ud3f0\ubc88\ud638"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={profileDraft.phone}
                 onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, phone: value }))}
                 placeholder="\uc608: 010-1234-5678"
@@ -1409,6 +1506,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{"\uc774\uba54\uc77c"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={profileDraft.email}
                 onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, email: value }))}
                 placeholder="\uc608: name@example.com"
@@ -1419,16 +1517,30 @@ async function handleLogout() {
               />
             </View>
 
-            <Pressable style={[styles.modalButton, styles.submitButton, (!profileFormComplete || profileSaving) && styles.disabledButton]} onPress={handleSaveProfile} disabled={!profileFormComplete || profileSaving}>
-              <Text style={styles.submitButtonText}>{profileSaving ? "\uc800\uc7a5 \uc911..." : "\ud655\uc778"}</Text>
-            </Pressable>
+            <View style={styles.modalButtons}>
+              <Pressable style={[styles.modalButton, styles.cancelButton, profileSaving && styles.disabledButton]} onPress={handleLogout} disabled={profileSaving}>
+                <Text style={styles.cancelButtonText}>{"\ub85c\uadf8\uc544\uc6c3"}</Text>
+              </Pressable>
+              <Pressable style={[styles.modalButton, styles.submitButton, (!profileFormComplete || profileSaving) && styles.disabledButton]} onPress={handleSaveProfile} disabled={!profileFormComplete || profileSaving}>
+                <Text style={styles.submitButtonText}>{profileSaving ? "\uc800\uc7a5 \uc911..." : "\ud655\uc778"}</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={closeUploadModal}>
-
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{selectedTypeInfo ? `${selectedTypeInfo.label} 업로드` : "업로드"}</Text>
@@ -1439,6 +1551,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>제목</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={formTitle}
                 onChangeText={setFormTitle}
                 placeholder="예: 할머니의 창업 조언"
@@ -1463,6 +1576,7 @@ async function handleLogout() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>태그</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={formTags}
                 onChangeText={setFormTags}
                 placeholder="예: OCR, 송년회, 가족행사"
@@ -1472,13 +1586,75 @@ async function handleLogout() {
             </View>
 
             <View style={styles.modalButtons}>
-              <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={closeUploadModal}>
+              <Pressable style={[styles.modalButton, styles.cancelButton, uploadSaving && styles.disabledButton]} onPress={closeUploadModal} disabled={uploadSaving}>
                 <Text style={styles.cancelButtonText}>취소</Text>
               </Pressable>
-              <Pressable style={[styles.modalButton, styles.submitButton]} onPress={handleAddRecord}>
+              <Pressable style={[styles.modalButton, styles.submitButton, uploadSaving && styles.disabledButton]} onPress={handleAddRecord} disabled={uploadSaving}>
                 <Text style={styles.submitButtonText}>저장하기</Text>
               </Pressable>
             </View>
+          </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal transparent visible={uploadSaving} onRequestClose={() => {}}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.uploadLoadingSheet}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text style={styles.uploadLoadingTitle}>업로드 중</Text>
+            <Text style={styles.uploadLoadingDescription}>{uploadSavingMessage}</Text>
+            <Text style={styles.uploadLoadingHint}>잠시만 기다려주세요. 업로드가 완료되면 결과를 안내해드립니다.</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={Boolean(pendingDeleteRecord)} onRequestClose={closeDeleteRecordConfirm}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.uploadLoadingSheet}>
+            <View style={styles.deleteConfirmIcon}>
+              <Text style={styles.deleteConfirmIconText}>!</Text>
+            </View>
+            <Text style={styles.uploadLoadingTitle}>기록 삭제</Text>
+            <Text style={styles.uploadLoadingDescription}>정말 삭제하시겠습니까?</Text>
+            <Text style={styles.uploadLoadingHint}>
+              삭제한 기록은 되돌릴 수 없으며, 저장소와 연결된 파일도 함께 정리됩니다.
+            </Text>
+            <View style={styles.resultButtonRow}>
+              <Pressable style={[styles.resultSecondaryButton, deleteSaving && styles.disabledButton]} onPress={closeDeleteRecordConfirm} disabled={deleteSaving}>
+                <Text style={styles.resultSecondaryButtonText}>취소</Text>
+              </Pressable>
+              <Pressable style={[styles.resultDangerButton, deleteSaving && styles.disabledButton]} onPress={handleDeleteRecord} disabled={deleteSaving}>
+                <Text style={styles.resultDangerButtonText}>삭제</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={deleteSaving} onRequestClose={() => {}}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.uploadLoadingSheet}>
+            <ActivityIndicator size="large" color="#DC2626" />
+            <Text style={styles.uploadLoadingTitle}>삭제 중</Text>
+            <Text style={styles.uploadLoadingDescription}>{deleteSavingMessage}</Text>
+            <Text style={styles.uploadLoadingHint}>잠시만 기다려주세요. 삭제가 완료되면 결과를 안내해드립니다.</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={Boolean(uploadResult)} onRequestClose={closeUploadResult}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.uploadLoadingSheet}>
+            <View style={styles.uploadResultIcon}>
+              <Text style={styles.uploadResultIconText}>✓</Text>
+            </View>
+            <Text style={styles.uploadLoadingTitle}>{uploadResult?.title || "업로드 완료"}</Text>
+            <Text style={styles.uploadLoadingDescription}>{uploadResult?.message || "업로드가 완료되었습니다."}</Text>
+            <Text style={styles.uploadLoadingHint}>가족방 저장소에서 방금 올린 기록을 바로 확인할 수 있습니다.</Text>
+            <Pressable style={styles.uploadResultButton} onPress={closeUploadResult}>
+              <Text style={styles.uploadResultButtonText}>확인</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -1529,11 +1705,13 @@ function LoginScreen({
     <SafeAreaView style={[styles.safeArea, styles.loginSafeArea]}>
       <ExpoStatusBar style="light" />
       <StatusBar barStyle="light-content" />
-      <ScrollView
-        contentContainerStyle={styles.loginScreen}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
+        <ScrollView
+          contentContainerStyle={styles.loginScreen}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         <View style={styles.loginHero}>
           <Text style={styles.loginEyebrow}>Ambient Digital Legacy</Text>
           <Text style={styles.loginTitle}>{"\uac00\uc871 \uae30\ub85d\uc744\n\uc548\uc804\ud558\uac8c \ubcf4\uad00\ud558\ub294 \uc571"}</Text>
@@ -1548,6 +1726,7 @@ function LoginScreen({
           <View style={styles.serverConfigBox}>
             <Text style={styles.inputLabel}>{"\ud14c\uc2a4\ud2b8 \uc11c\ubc84 \uc8fc\uc18c"}</Text>
             <TextInput
+              {...COMMON_SINGLE_LINE_INPUT_PROPS}
               value={serverUrlInput}
               onChangeText={setServerUrlInput}
               placeholder="예: 192.168.219.136:8000 또는 http://192.168.219.136:8000/api/v1"
@@ -1591,7 +1770,8 @@ function LoginScreen({
             </Text>
           ) : null}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1728,7 +1908,8 @@ function ChatDemoScreen({
     : "provider 미호출";
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       <View style={styles.chatIntroCard}>
         <Text style={styles.sectionTitle}>개인화 AI 설정 데모</Text>
         <Text style={styles.sectionDescription}>
@@ -1860,10 +2041,11 @@ function ChatDemoScreen({
         {activeFamily?.id ? `현재 가족방: ${activeFamily.name}` : "가족방이 없으면 AI 데모 API를 실행할 수 없습니다."}
       </Text>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-function StorageScreen({ groupedRecords, onViewMedia }) {
+function StorageScreen({ groupedRecords, onViewMedia, onDeleteRecord }) {
   const [activeStorageType, setActiveStorageType] = useState("image");
   const activeGroup = groupedRecords.find((group) => group.key === activeStorageType) || groupedRecords[0];
 
@@ -1950,11 +2132,22 @@ function StorageScreen({ groupedRecords, onViewMedia }) {
                       ))}
                     </View>
                   ) : null}
-                  {canViewMedia ? (
-                    <Pressable style={styles.mediaViewButton} onPress={() => onViewMedia(item)}>
-                      <Text style={styles.mediaViewButtonText}>{item.type === "image" ? "사진 보기" : "영상 보기"}</Text>
+                  <View style={styles.recordActionRow}>
+                    {canViewMedia ? (
+                      <Pressable style={styles.mediaViewButton} onPress={() => onViewMedia(item)}>
+                        <Text style={styles.mediaViewButtonText}>{item.type === "image" ? "사진 보기" : "영상 보기"}</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      style={[
+                        styles.recordDeleteButton,
+                        !canViewMedia && styles.recordDeleteButtonFull,
+                      ]}
+                      onPress={() => onDeleteRecord(item)}
+                    >
+                      <Text style={styles.recordDeleteButtonText}>삭제</Text>
                     </Pressable>
-                  ) : null}
+                  </View>
                 </View>
               );
             })
@@ -1988,7 +2181,8 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.profileCard}>
           <View style={styles.profileTopRow}>
             {user?.picture ? (
@@ -2081,6 +2275,7 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
             <View style={styles.familyForm}>
               <Text style={styles.inputLabel}>{"\uac00\uc871\ubc29 \uc774\ub984"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={familyName}
                 onChangeText={setFamilyName}
                 placeholder="\uc608: \uc131\ube48\uc774\ub124 \uac00\uc871\ubc29"
@@ -2095,6 +2290,7 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
             <View style={styles.familyForm}>
               <Text style={styles.inputLabel}>{"\ucd08\ub300 \ucf54\ub4dc"}</Text>
               <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
                 value={inviteCode}
                 onChangeText={setInviteCode}
                 placeholder="\uc608: A1B2C3"
@@ -2144,6 +2340,7 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
           <Text style={styles.logoutHint}>{"\ub85c\uadf8\uc544\uc6c3\ud558\uba74 \ucc98\uc74c \ub85c\uadf8\uc778 \ud654\uba74\uc73c\ub85c \ub3cc\uc544\uac11\ub2c8\ub2e4."}</Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal transparent visible={Boolean(selectedMember)} onRequestClose={() => setSelectedMember(null)}>
         <View style={styles.centerModalBackdrop}>
@@ -2244,6 +2441,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 14,
     backgroundColor: "#0F172A",
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
   },
   loadingTitle: {
     color: "#FFFFFF",
@@ -3238,6 +3438,44 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: "#475569",
   },
+  recordActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
+  mediaViewButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  mediaViewButtonText: {
+    color: "#1D4ED8",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  recordDeleteButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  recordDeleteButtonFull: {
+    flex: 1,
+  },
+  recordDeleteButtonText: {
+    color: "#B91C1C",
+    fontSize: 13,
+    fontWeight: "800",
+  },
   tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -3317,6 +3555,121 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
+  },
+  centerModalScrollContent: {
+    flexGrow: 1,
+    width: "100%",
+    justifyContent: "center",
+    paddingVertical: 28,
+  },
+  uploadLoadingSheet: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 10,
+  },
+  uploadLoadingTitle: {
+    marginTop: 6,
+    color: "#0F172A",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+  uploadLoadingDescription: {
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  uploadLoadingHint: {
+    color: "#64748B",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  uploadResultIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  uploadResultIconText: {
+    color: "#2563EB",
+    fontSize: 30,
+    fontWeight: "900",
+  },
+  uploadResultButton: {
+    marginTop: 8,
+    alignSelf: "stretch",
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadResultButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  deleteConfirmIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  deleteConfirmIconText: {
+    color: "#DC2626",
+    fontSize: 30,
+    fontWeight: "900",
+  },
+  resultButtonRow: {
+    flexDirection: "row",
+    alignSelf: "stretch",
+    gap: 10,
+    marginTop: 8,
+  },
+  resultSecondaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultSecondaryButtonText: {
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  resultDangerButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resultDangerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
   },
   profileModalSheet: {
     width: "100%",
@@ -3437,6 +3790,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "flex-end",
   },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+  },
   modalSheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
@@ -3515,7 +3872,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
 
 
 
