@@ -77,12 +77,59 @@ const tabItems = [
   { key: "mypage", label: "\ub9c8\uc774" },
 ];
 
+const modelOptions = [
+  {
+    id: "gemma-4-e2b-device",
+    label: "Gemma 4 E2B",
+    placement: "device",
+    summary: "Android 온디바이스 기본 모델로 가정한 경량 프로필",
+  },
+  {
+    id: "gemma-4-e4b-device",
+    label: "Gemma 4 E4B",
+    placement: "device",
+    summary: "고사양 기기에서 더 높은 품질을 기대하는 프로필",
+  },
+  {
+    id: "exaone-family-vault",
+    label: "EXAONE Family Vault",
+    placement: "family_vault",
+    summary: "가족 금고 노드의 정본 응답을 담당하는 메인 모델",
+  },
+];
+
+const personaOptions = [
+  {
+    id: "father-calm",
+    label: "아버지 페르소나",
+    tone: "차분하고 핵심만 짚는 조언형",
+  },
+  {
+    id: "mother-warm",
+    label: "어머니 페르소나",
+    tone: "정서적 공감과 생활 맥락을 살리는 대화형",
+  },
+  {
+    id: "grandfather-mentor",
+    label: "할아버지 페르소나",
+    tone: "회고와 조언이 섞인 회상형",
+  },
+];
+
+const demoQuestionOptions = [
+  "할아버지가 예전에 하셨던 조언을 요약해줘.",
+  "송년회에서 어떤 말을 했는지 기억나?",
+  "부산 여행 때 남긴 가족 기록을 정리해줘.",
+];
+
 const STORAGE_KEYS = {
   records: "ambient.records",
   familyRooms: "ambient.familyRooms",
   activeFamilyId: "ambient.activeFamilyId",
   user: "ambient.user",
   apiBaseUrl: "ambient.apiBaseUrl",
+  selectedModelId: "ambient.selectedModelId",
+  selectedPersonaId: "ambient.selectedPersonaId",
 };
 
 const GOOGLE_WEB_CLIENT_ID = "279745599452-9tlm7fg2mndf6jk8nqo05cclh3hq0r9u.apps.googleusercontent.com";
@@ -123,6 +170,18 @@ function getNetworkGuidanceMessage() {
 function getReadableErrorMessage(error, fallbackMessage) {
   if (error?.message?.includes("Network request failed")) {
     return `${fallbackMessage}\\n\\n${getNetworkGuidanceMessage()}`;
+  }
+
+  if (Array.isArray(error)) {
+    return error.map((item) => getReadableErrorMessage(item, fallbackMessage)).join("\n");
+  }
+
+  if (error && typeof error === "object" && !error.message) {
+    try {
+      return JSON.stringify(error, null, 2);
+    } catch (_error) {
+      return fallbackMessage;
+    }
   }
 
   return error?.message || fallbackMessage;
@@ -169,6 +228,46 @@ async function syncUserToBackend(payload) {
   });
 }
 
+async function loginDemoUserToBackend() {
+  return apiRequest("/auth/demo", {
+    method: "POST",
+  });
+}
+
+function buildFallbackEmail(identityValue) {
+  const normalized = String(identityValue || "user")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${normalized || "user"}@ambientlegacy.app`;
+}
+
+function parseTagInput(value) {
+  return Array.from(
+    new Set(
+      String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function buildDefaultTagsForType(typeKey) {
+  if (typeKey === "image") {
+    return ["이미지", "가족기록"];
+  }
+  if (typeKey === "video") {
+    return ["영상", "가족기록"];
+  }
+  if (typeKey === "voice") {
+    return ["음성", "가족기록"];
+  }
+  return ["텍스트", "가족기록"];
+}
+
 async function fetchFamilyMembers(roomId) {
   return apiRequest(`/families/${roomId}/members`);
 }
@@ -203,6 +302,28 @@ async function createUploadEntry(payload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+async function fetchAIDemoChat(payload) {
+  return apiRequest("/ai/chat-demo", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+async function bootstrapAIDemo(payload) {
+  return apiRequest("/ai/demo-bootstrap", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+async function fetchAIModels() {
+  return apiRequest("/ai/models");
+}
+
+async function fetchAIPersonas() {
+  return apiRequest("/ai/personas");
 }
 
 async function uploadMediaBinary(uploadId, userId, asset) {
@@ -266,6 +387,7 @@ function mapUploadToRecord(upload) {
     type: upload.type,
     title: upload.title,
     detail: upload.description || "?? ?? ??",
+    tags: Array.isArray(upload.tags) ? upload.tags : [],
     createdAt: formatRecordDate(upload.created_at),
     fileUrl: upload.file_url || null,
     mimeType: upload.mime_type || null,
@@ -332,6 +454,7 @@ export default function App() {
   const [modalVisible, setModalVisible] = useState(false);
   const [formTitle, setFormTitle] = useState("");
   const [formDetail, setFormDetail] = useState("");
+  const [formTags, setFormTags] = useState("");
   const [familyRooms, setFamilyRooms] = useState([]);
   const [activeFamilyId, setActiveFamilyId] = useState(null);
   const [user, setUser] = useState(null);
@@ -341,6 +464,10 @@ export default function App() {
   const [profileDraft, setProfileDraft] = useState(buildProfileDraft(null));
   const [profileSaving, setProfileSaving] = useState(false);
   const [uploadSaving, setUploadSaving] = useState(false);
+  const [availableModels, setAvailableModels] = useState(modelOptions);
+  const [availablePersonas, setAvailablePersonas] = useState(personaOptions);
+  const [selectedModelId, setSelectedModelId] = useState(modelOptions[0].id);
+  const [selectedPersonaId, setSelectedPersonaId] = useState(personaOptions[0].id);
   const latestUserRef = useRef(null);
   const googleAuthReady = isGoogleAuthConfigured();
 
@@ -355,12 +482,22 @@ export default function App() {
     return familyRooms.find((room) => room.id === activeFamilyId) || null;
   }, [familyRooms, activeFamilyId]);
 
+  const selectedModel = useMemo(() => {
+    return availableModels.find((item) => item.id === selectedModelId) || availableModels[0] || modelOptions[0];
+  }, [availableModels, selectedModelId]);
+
+  const selectedPersona = useMemo(() => {
+    return availablePersonas.find((item) => item.id === selectedPersonaId) || availablePersonas[0] || personaOptions[0];
+  }, [availablePersonas, selectedPersonaId]);
+
   useEffect(() => {
     async function loadPersistedData() {
       try {
-        const [savedUser, savedApiBaseUrl] = await Promise.all([
+        const [savedUser, savedApiBaseUrl, savedModelId, savedPersonaId] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.user),
           AsyncStorage.getItem(STORAGE_KEYS.apiBaseUrl),
+          AsyncStorage.getItem(STORAGE_KEYS.selectedModelId),
+          AsyncStorage.getItem(STORAGE_KEYS.selectedPersonaId),
         ]);
 
         if (savedUser) {
@@ -371,6 +508,12 @@ export default function App() {
           setApiBaseUrl(normalizedApiBaseUrl);
         } else {
           setApiBaseUrl(setRuntimeApiBaseUrl(DEFAULT_API_BASE_URL));
+        }
+        if (savedModelId && modelOptions.some((item) => item.id === savedModelId)) {
+          setSelectedModelId(savedModelId);
+        }
+        if (savedPersonaId && personaOptions.some((item) => item.id === savedPersonaId)) {
+          setSelectedPersonaId(savedPersonaId);
         }
       } catch (_error) {
         Alert.alert("\uc800\uc7a5\ub41c \ub370\uc774\ud130 \ub85c\ub4dc \uc2e4\ud328", "\ub85c\uceec\uc5d0 \uc800\uc7a5\ub41c \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.");
@@ -409,12 +552,79 @@ export default function App() {
   }, [apiBaseUrl, storageLoaded]);
 
   useEffect(() => {
+    if (!storageLoaded || !user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function syncAIOptions() {
+      try {
+        const [models, personas] = await Promise.all([fetchAIModels(), fetchAIPersonas()]);
+        if (cancelled) {
+          return;
+        }
+
+        if (Array.isArray(models) && models.length > 0) {
+          const normalizedModels = models.map((item) => ({
+            id: item.id,
+            label: item.display_name,
+            placement: item.placement,
+            summary: item.notes,
+            provider: item.provider,
+          }));
+          setAvailableModels(normalizedModels);
+          setSelectedModelId((prev) => (
+            normalizedModels.some((item) => item.id === prev) ? prev : normalizedModels[0].id
+          ));
+        }
+
+        if (Array.isArray(personas) && personas.length > 0) {
+          const normalizedPersonas = personas.map((item) => ({
+            id: item.id,
+            label: item.label,
+            tone: item.tone,
+          }));
+          setAvailablePersonas(normalizedPersonas);
+          setSelectedPersonaId((prev) => (
+            normalizedPersonas.some((item) => item.id === prev) ? prev : normalizedPersonas[0].id
+          ));
+        }
+      } catch (_error) {
+      }
+    }
+
+    syncAIOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storageLoaded, user?.id]);
+
+  useEffect(() => {
+    if (!storageLoaded) {
+      return;
+    }
+
+    AsyncStorage.setItem(STORAGE_KEYS.selectedModelId, selectedModelId);
+  }, [selectedModelId, storageLoaded]);
+
+  useEffect(() => {
+    if (!storageLoaded) {
+      return;
+    }
+
+    AsyncStorage.setItem(STORAGE_KEYS.selectedPersonaId, selectedPersonaId);
+  }, [selectedPersonaId, storageLoaded]);
+
+  useEffect(() => {
     if (!googleAuthReady) {
       return;
     }
 
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
+      androidClientId: GOOGLE_ANDROID_CLIENT_ID,
       scopes: ["profile", "email"],
     });
   }, [googleAuthReady]);
@@ -581,6 +791,31 @@ export default function App() {
     return mappedRecords;
   }
 
+  async function handlePrepareDemoScenario() {
+    if (!user) {
+      Alert.alert("로그인 필요", "데모 시나리오를 준비하려면 먼저 로그인해야 합니다.");
+      return;
+    }
+
+    try {
+      setUploadSaving(true);
+      const ensuredUser = await ensureBackendUser(user, { force: true });
+      const bootstrapResult = await bootstrapAIDemo({ user_id: ensuredUser.id });
+      await refreshFamilyRoomsFromBackend();
+      await refreshUploadsFromBackend(bootstrapResult.room_id, ensuredUser);
+      setActiveFamilyId(bootstrapResult.room_id);
+      setActiveTab("chat");
+      Alert.alert(
+        "데모 데이터 준비 완료",
+        `${bootstrapResult.room_name}에 ${bootstrapResult.seeded_uploads}개의 샘플 기록과 ${bootstrapResult.seeded_files || 0}개의 파일을 준비했습니다.`
+      );
+    } catch (error) {
+      Alert.alert("데모 준비 실패", getReadableErrorMessage(error, "데모 시나리오를 준비하지 못했습니다."));
+    } finally {
+      setUploadSaving(false);
+    }
+  }
+
   async function ensureBackendUser(currentUser, options = {}) {
     if (!currentUser) {
       throw new Error("\ub85c\uadf8\uc778\uc774 \ud544\uc694\ud569\ub2c8\ub2e4.");
@@ -590,9 +825,11 @@ export default function App() {
       return currentUser;
     }
 
+    const resolvedIdentity = currentUser.googleSub || currentUser.email || currentUser.id || "user";
+    const resolvedEmail = currentUser.email || buildFallbackEmail(resolvedIdentity);
     const syncPayload = {
-      google_sub: currentUser.googleSub || currentUser.email || currentUser.id,
-      email: currentUser.email || "",
+      google_sub: resolvedIdentity,
+      email: resolvedEmail,
       name: currentUser.name || currentUser.email || "\uc0ac\uc6a9\uc790",
       profile_image: currentUser.picture || null,
     };
@@ -641,10 +878,10 @@ export default function App() {
       }
 
       const provisionalUser = {
-        id: profile.id || profile.email,
-        googleSub: profile.id || profile.email,
+        id: profile.id || profile.email || profile.name || "google-user",
+        googleSub: profile.id || profile.email || profile.name || "google-user",
         name: profile.name || profile.email || "Google User",
-        email: profile.email || "",
+        email: profile.email || buildFallbackEmail(profile.id || profile.name || "google-user"),
         picture: profile.photo || null,
         isBackendSynced: false,
       };
@@ -666,21 +903,24 @@ export default function App() {
   }
 
   async function handleDemoLogin() {
-    const provisionalUser = {
-      id: "demo-user",
-      googleSub: "demo-user",
-      name: "\ub370\ubaa8 \uc0ac\uc6a9\uc790",
-      email: "demo@ambient.local",
-      picture: null,
-      isBackendSynced: false,
-    };
-
     try {
-      setUser(provisionalUser);
-      const backendUser = await ensureBackendUser(provisionalUser);
-      if (!backendUser?.id) {
+      const backendUser = await loginDemoUserToBackend();
+      if (!backendUser?.user_id) {
         throw new Error("\ubc31\uc5d4\ub4dc \uc0ac\uc6a9\uc790 \ub3d9\uae30\ud654\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4.");
       }
+
+      setUser({
+        id: backendUser.user_id,
+        googleSub: "demo-user",
+        name: backendUser.name || "\ub370\ubaa8 \uc0ac\uc6a9\uc790",
+        email: backendUser.email || "demo@ambientlegacy.app",
+        picture: backendUser.profile_image || null,
+        age: backendUser.age || null,
+        gender: backendUser.gender || null,
+        phone: backendUser.phone || null,
+        profileChunk: backendUser.profile_chunk || null,
+        isBackendSynced: true,
+      });
     } catch (error) {
       setUser(null);
       Alert.alert("\ub370\ubaa8 \ub85c\uadf8\uc778 \uc2e4\ud328", getReadableErrorMessage(error, "\ubc31\uc5d4\ub4dc \uc0ac\uc6a9\uc790 \ub3d9\uae30\ud654\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4."));
@@ -906,6 +1146,7 @@ async function handleLogout() {
     setSelectedType(typeKey);
     setFormTitle("");
     setFormDetail("");
+    setFormTags("");
     setModalVisible(true);
   }
 
@@ -957,6 +1198,7 @@ async function handleLogout() {
         type: typeKey,
         title: fileName,
         description: meta || `${label} 파일 업로드`,
+        tags: buildDefaultTagsForType(typeKey),
       });
       await uploadMediaBinary(uploadEntry.upload_id, ensuredUser.id, asset);
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
@@ -974,6 +1216,7 @@ async function handleLogout() {
     setSelectedType(null);
     setFormTitle("");
     setFormDetail("");
+    setFormTags("");
   }
 
   async function handleOpenMedia(item) {
@@ -1010,6 +1253,7 @@ async function handleLogout() {
         type: selectedType,
         title: formTitle.trim(),
         description: formDetail.trim() || "추가 설명 없음",
+        tags: parseTagInput(formTags).length > 0 ? parseTagInput(formTags) : buildDefaultTagsForType(selectedType),
       });
       await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
       closeUploadModal();
@@ -1057,7 +1301,20 @@ async function handleLogout() {
               onUploadPress={handleUploadPress}
             />
           )}
-          {activeTab === "chat" && <ChatDemoScreen />}
+          {activeTab === "chat" && (
+            <ChatDemoScreen
+              user={user}
+              activeFamily={activeFamily}
+              modelOptions={availableModels}
+              personaOptions={availablePersonas}
+              selectedModel={selectedModel}
+              selectedPersona={selectedPersona}
+              onSelectModel={setSelectedModelId}
+              onSelectPersona={setSelectedPersonaId}
+              onPrepareDemoScenario={handlePrepareDemoScenario}
+              busy={uploadSaving}
+            />
+          )}
           {activeTab === "storage" && <StorageScreen groupedRecords={groupedRecords} onViewMedia={handleOpenMedia} />}
           {activeTab === "mypage" && (
             <MyPageScreen
@@ -1187,6 +1444,17 @@ async function handleLogout() {
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>태그</Text>
+              <TextInput
+                value={formTags}
+                onChangeText={setFormTags}
+                placeholder="예: OCR, 송년회, 가족행사"
+                placeholderTextColor="#94A3B8"
+                style={styles.textInput}
+              />
+            </View>
+
             <View style={styles.modalButtons}>
               <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={closeUploadModal}>
                 <Text style={styles.cancelButtonText}>취소</Text>
@@ -1243,7 +1511,11 @@ function LoginScreen({
     <SafeAreaView style={[styles.safeArea, styles.loginSafeArea]}>
       <ExpoStatusBar style="light" />
       <StatusBar barStyle="light-content" />
-      <View style={styles.loginScreen}>
+      <ScrollView
+        contentContainerStyle={styles.loginScreen}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.loginHero}>
           <Text style={styles.loginEyebrow}>Ambient Digital Legacy</Text>
           <Text style={styles.loginTitle}>{"\uac00\uc871 \uae30\ub85d\uc744\n\uc548\uc804\ud558\uac8c \ubcf4\uad00\ud558\ub294 \uc571"}</Text>
@@ -1294,7 +1566,7 @@ function LoginScreen({
             </Text>
           ) : null}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1375,45 +1647,193 @@ function HomeScreen({ records, onUploadPress }) {
   );
 }
 
-function ChatDemoScreen() {
+function ChatDemoScreen({
+  user,
+  activeFamily,
+  modelOptions,
+  personaOptions,
+  selectedModel,
+  selectedPersona,
+  onSelectModel,
+  onSelectPersona,
+  onPrepareDemoScenario,
+  busy,
+}) {
+  const inferenceLabel =
+    selectedModel?.placement === "device" ? "이 기기에서 생성됨" : "가족 금고 정본 모델에서 생성됨";
+  const personaHint = selectedPersona?.tone || "기본 페르소나";
+  const [query, setQuery] = useState("할아버지가 예전에 하셨던 조언을 요약해줘.");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatResult, setChatResult] = useState(null);
+
+  async function handleRunChatDemo() {
+    if (!user?.id) {
+      Alert.alert("로그인 필요", "AI 데모를 실행하려면 먼저 로그인해야 합니다.");
+      return;
+    }
+
+    if (!activeFamily?.id) {
+      Alert.alert("가족방 필요", "AI 데모를 실행하려면 먼저 가족방을 생성하거나 입장해주세요.");
+      return;
+    }
+
+    try {
+      setChatLoading(true);
+      const result = await fetchAIDemoChat({
+        room_id: activeFamily.id,
+        user_id: user.id,
+        model_id: selectedModel.id,
+        persona_id: selectedPersona.id,
+        query: query.trim() || "가족 기록을 요약해줘.",
+      });
+      setChatResult(result);
+    } catch (error) {
+      Alert.alert("AI 데모 호출 실패", getReadableErrorMessage(error, "AI 데모 응답을 불러오지 못했습니다."));
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
+  const responseText = chatResult?.answer || "아직 백엔드 AI 데모를 호출하지 않았습니다. 아래에서 질문을 전송하면 현재 설정 기준의 응답과 근거를 받아옵니다.";
+  const evidenceLines = Array.isArray(chatResult?.retrieved_evidence) ? chatResult.retrieved_evidence : [];
+  const runtimeSourceLabel =
+    chatResult?.inference_source === "family_vault" ? "가족 금고 정본 응답" : inferenceLabel;
+  const providerSummary = chatResult
+    ? `${chatResult.provider_name || "unknown"} · ${chatResult.provider_mode || "unknown"}`
+    : "provider 미호출";
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.chatIntroCard}>
-        <Text style={styles.sectionTitle}>챗봇 데모</Text>
+        <Text style={styles.sectionTitle}>개인화 AI 설정 데모</Text>
         <Text style={styles.sectionDescription}>
-          실제 기능은 아직 연결하지 않고, 발표용 시연을 위한 레이아웃만 구성한 화면입니다.
+          모델과 페르소나를 각각 바꾸면서 온디바이스 응답과 가족 금고 응답 구조를 시연하는 화면입니다.
         </Text>
+        <Pressable style={[styles.demoScenarioButton, busy && styles.disabledButton]} onPress={onPrepareDemoScenario} disabled={busy}>
+          <Text style={styles.demoScenarioButtonText}>{busy ? "데모 준비 중..." : "데모 데이터 준비"}</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.pipelineCard}>
+        <Text style={styles.pipelineTitle}>현재 데모 파이프라인</Text>
+        <Text style={styles.pipelineDescription}>
+          Cloud SQL에 기록 메타데이터를 저장하고, 이미지 파일은 GCS에 올리며, 태그와 OCR 문맥을 함께 Gemma 검색 근거에 연결합니다.
+        </Text>
+        <View style={styles.pipelineChipRow}>
+          {["Cloud SQL", "GCS 이미지 저장", "태그 기반 검색", "Gemma 응답"].map((item) => (
+            <View key={item} style={styles.pipelineChip}>
+              <Text style={styles.pipelineChipText}>{item}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.aiConfigCard}>
+        <Text style={styles.aiConfigTitle}>모델 선택</Text>
+        <Text style={styles.aiConfigDescription}>기기 성능과 목적에 따라 온디바이스 모델 또는 가족 금고 모델을 선택합니다.</Text>
+        <View style={styles.optionList}>
+          {(modelOptions || []).map((option) => {
+            const active = option.id === selectedModel?.id;
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.optionCard, active && styles.optionCardActive]}
+                onPress={() => onSelectModel(option.id)}
+              >
+                <View style={styles.optionHeaderRow}>
+                  <Text style={[styles.optionTitle, active && styles.optionTitleActive]}>{option.label}</Text>
+                  <View style={[styles.optionPill, active && styles.optionPillActive]}>
+                    <Text style={[styles.optionPillText, active && styles.optionPillTextActive]}>
+                      {option.placement === "device" ? "온디바이스" : "정본 노드"}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.optionDescription, active && styles.optionDescriptionActive]}>{option.summary}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.aiConfigCard}>
+        <Text style={styles.aiConfigTitle}>페르소나 선택</Text>
+        <Text style={styles.aiConfigDescription}>모델과 분리된 Markdown 페르소나 자산을 연결한다는 가정의 데모 UI입니다.</Text>
+        <View style={styles.optionList}>
+          {(personaOptions || []).map((option) => {
+            const active = option.id === selectedPersona?.id;
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.optionCard, active && styles.optionCardActiveSoft]}
+                onPress={() => onSelectPersona(option.id)}
+              >
+                <Text style={styles.optionTitle}>{option.label}</Text>
+                <Text style={styles.optionDescription}>{option.tone}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.runtimeSummaryCard}>
+        <Text style={styles.runtimeSummaryTitle}>현재 추론 레이어</Text>
+        <Text style={styles.runtimeSummaryText}>{runtimeSourceLabel}</Text>
+        <Text style={styles.runtimeSummaryMeta}>{selectedModel?.label} · {selectedPersona?.label}</Text>
+        <Text style={styles.runtimeSummaryHint}>페르소나 톤: {personaHint}</Text>
+        <Text style={styles.runtimeSummaryHint}>Provider 상태: {providerSummary}</Text>
+      </View>
+
+      <View style={styles.aiConfigCard}>
+        <Text style={styles.aiConfigTitle}>추천 질문</Text>
+        <Text style={styles.aiConfigDescription}>발표 중 바로 눌러서 시연할 수 있는 질문입니다.</Text>
+        <View style={styles.questionChipRow}>
+          {demoQuestionOptions.map((item) => (
+            <Pressable key={item} style={styles.questionChip} onPress={() => setQuery(item)}>
+              <Text style={styles.questionChipText}>{item}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       <View style={styles.chatBubbleLeft}>
         <Text style={styles.chatMeta}>가족 유산 챗봇</Text>
         <Text style={styles.chatText}>
-          안녕하세요. 저장된 가족 기록을 바탕으로 질문에 답변하는 데모 챗봇입니다.
+          안녕하세요. 저장된 가족 기록과 선택된 페르소나를 바탕으로 답변하는 데모 챗봇입니다.
         </Text>
       </View>
 
       <View style={styles.chatBubbleRight}>
-        <Text style={styles.chatText}>할아버지가 예전에 하셨던 조언을 요약해줘.</Text>
+        <Text style={styles.chatText}>{query}</Text>
       </View>
 
       <View style={styles.chatBubbleLeft}>
-        <Text style={styles.chatMeta}>데모 응답</Text>
-        <Text style={styles.chatText}>
-          저장된 인터뷰 메모를 바탕으로, 할아버지는 시작하기 전에 준비를 꼼꼼히 하고 주변 사람과 약속을 지키는 태도를 중요하게 말씀하셨습니다.
-        </Text>
+        <Text style={styles.chatMeta}>{chatResult ? "백엔드 데모 응답" : "응답 대기"}</Text>
+        <Text style={styles.chatText}>{responseText}</Text>
+        <Text style={styles.chatEvidence}>근거 레이어: OCR/STT 기반 memory chunk + persona markdown tone rule</Text>
+        {evidenceLines.length ? (
+          <View style={styles.chatEvidenceBox}>
+            {evidenceLines.map((line, index) => (
+              <Text key={`${line}-${index}`} style={styles.chatEvidenceLine}>{line}</Text>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.chatInputShell}>
         <TextInput
           style={styles.chatInput}
-          placeholder="데모 화면입니다. 입력은 동작하지 않습니다."
+          placeholder="질문을 입력하고 현재 설정으로 전송하세요."
           placeholderTextColor="#94A3B8"
-          editable={false}
+          value={query}
+          onChangeText={setQuery}
         />
-        <View style={styles.chatSendButton}>
-          <Text style={styles.chatSendText}>전송</Text>
-        </View>
+        <Pressable style={[styles.chatSendButton, chatLoading && styles.disabledButton]} onPress={handleRunChatDemo} disabled={chatLoading}>
+          <Text style={styles.chatSendText}>{chatLoading ? "호출중" : "전송"}</Text>
+        </Pressable>
       </View>
+      <Text style={styles.chatRuntimeHint}>
+        {activeFamily?.id ? `현재 가족방: ${activeFamily.name}` : "가족방이 없으면 AI 데모 API를 실행할 수 없습니다."}
+      </Text>
     </ScrollView>
   );
 }
@@ -1496,6 +1916,15 @@ function StorageScreen({ groupedRecords, onViewMedia }) {
                     <Text style={styles.recordDate}>{item.createdAt}</Text>
                   </View>
                   <Text style={styles.recordDetail}>{item.detail}</Text>
+                  {item.tags?.length ? (
+                    <View style={styles.tagRow}>
+                      {item.tags.map((tag) => (
+                        <View key={`${item.id}-${tag}`} style={styles.tagChip}>
+                          <Text style={styles.tagChipText}>{`#${tag}`}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                   {canViewMedia ? (
                     <Pressable style={styles.mediaViewButton} onPress={() => onViewMedia(item)}>
                       <Text style={styles.mediaViewButtonText}>{item.type === "image" ? "사진 보기" : "영상 보기"}</Text>
@@ -1773,12 +2202,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F172A",
   },
   loginScreen: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 44,
-    paddingBottom: 34,
+    paddingBottom: 56,
     backgroundColor: "#0F172A",
+    gap: 28,
   },
   loginHero: {
     gap: 16,
@@ -1988,7 +2418,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 22,
     paddingTop: 4,
-    paddingBottom: 34,
+    paddingBottom: 112,
     gap: 18,
   },
   heroCard: {
@@ -2125,6 +2555,174 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 18,
   },
+  pipelineCard: {
+    backgroundColor: "#E0F2FE",
+    borderRadius: 24,
+    padding: 18,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  pipelineTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0C4A6E",
+  },
+  pipelineDescription: {
+    color: "#075985",
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  pipelineChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  pipelineChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+  },
+  pipelineChipText: {
+    color: "#0369A1",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  demoScenarioButton: {
+    marginTop: 14,
+    minHeight: 46,
+    borderRadius: 16,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  demoScenarioButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  aiConfigCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    gap: 10,
+  },
+  aiConfigTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  aiConfigDescription: {
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  optionList: {
+    gap: 10,
+  },
+  optionCard: {
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
+    gap: 6,
+  },
+  optionCardActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  optionCardActiveSoft: {
+    backgroundColor: "#DBEAFE",
+    borderColor: "#93C5FD",
+  },
+  optionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  optionTitle: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+    flex: 1,
+  },
+  optionTitleActive: {
+    color: "#FFFFFF",
+  },
+  optionDescription: {
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  optionDescriptionActive: {
+    color: "#CBD5E1",
+  },
+  optionPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#E2E8F0",
+  },
+  optionPillActive: {
+    backgroundColor: "#1E293B",
+  },
+  optionPillText: {
+    color: "#334155",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  optionPillTextActive: {
+    color: "#FFFFFF",
+  },
+  runtimeSummaryCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 24,
+    padding: 18,
+    gap: 6,
+  },
+  runtimeSummaryTitle: {
+    color: "#93C5FD",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  runtimeSummaryText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  runtimeSummaryMeta: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  runtimeSummaryHint: {
+    color: "#93C5FD",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  questionChipRow: {
+    gap: 10,
+  },
+  questionChip: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  questionChipText: {
+    color: "#1E3A8A",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
+  },
   chatBubbleLeft: {
     alignSelf: "flex-start",
     maxWidth: "86%",
@@ -2151,6 +2749,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: "#0F172A",
+  },
+  chatEvidence: {
+    marginTop: 10,
+    color: "#64748B",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  chatEvidenceBox: {
+    marginTop: 12,
+    gap: 6,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    padding: 12,
+  },
+  chatEvidenceLine: {
+    color: "#334155",
+    fontSize: 12,
+    lineHeight: 18,
   },
   chatInputShell: {
     flexDirection: "row",
@@ -2179,6 +2795,12 @@ const styles = StyleSheet.create({
   chatSendText: {
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+  chatRuntimeHint: {
+    color: "#64748B",
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
   },
   storageScreen: {
     flex: 1,
@@ -2218,7 +2840,7 @@ const styles = StyleSheet.create({
   },
   storageListContent: {
     paddingHorizontal: 22,
-    paddingBottom: 34,
+    paddingBottom: 112,
     gap: 16,
   },
   profileCard: {
@@ -2572,12 +3194,29 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: "#475569",
   },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  tagChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#E0F2FE",
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369A1",
+  },
   tabBar: {
     flexDirection: "row",
     gap: 6,
     paddingHorizontal: 10,
     paddingTop: 10,
-    paddingBottom: 14,
+    paddingBottom: 22,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
@@ -2832,31 +3471,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

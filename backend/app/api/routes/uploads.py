@@ -1,6 +1,8 @@
 import io
+import json
 import logging
 import uuid
+from base64 import b64decode
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -21,6 +23,11 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 LOCAL_MEDIA_ROOT = Path(__file__).resolve().parents[2] / 'storage' / 'uploads'
 LOCAL_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+TAG_PREFIX = "[[tags:"
+TAG_SUFFIX = "]]"
+ONE_PIXEL_PNG = b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8BfJQAAAAASUVORK5CYII="
+)
 
 
 def build_file_url(request: Request | None, upload: Upload, viewer_user_id: str | None) -> str | None:
@@ -40,12 +47,61 @@ def resolve_gcp_project_id() -> str | None:
     return None
 
 
+def normalize_tags(tags: list[str] | None) -> list[str]:
+    if not tags:
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        cleaned = str(tag or "").strip()
+        if not cleaned:
+            continue
+        dedupe_key = cleaned.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(cleaned)
+    return normalized
+
+
+def pack_description_with_tags(description: str | None, tags: list[str] | None) -> str | None:
+    normalized_tags = normalize_tags(tags)
+    normalized_description = (description or "").strip()
+    if not normalized_tags:
+        return normalized_description or None
+
+    tag_payload = ",".join(normalized_tags)
+    if normalized_description:
+        return f"{TAG_PREFIX}{tag_payload}{TAG_SUFFIX} {normalized_description}"
+    return f"{TAG_PREFIX}{tag_payload}{TAG_SUFFIX}"
+
+
+def unpack_description_and_tags(raw_description: str | None) -> tuple[str | None, list[str]]:
+    if not raw_description:
+        return None, []
+
+    description = raw_description.strip()
+    if not description.startswith(TAG_PREFIX):
+        return description, []
+
+    tag_end = description.find(TAG_SUFFIX)
+    if tag_end == -1:
+        return description, []
+
+    raw_tags = description[len(TAG_PREFIX):tag_end]
+    tags = normalize_tags(raw_tags.split(","))
+    remainder = description[tag_end + len(TAG_SUFFIX):].strip()
+    return remainder or None, tags
+
+
 def get_gcs_client():
     if not settings.use_gcs_media_storage or not settings.gcs_bucket_name:
         return None
 
     try:
         from google.cloud import storage
+        from google.oauth2 import service_account
     except ImportError:
         return None
 
@@ -53,7 +109,56 @@ def get_gcs_client():
     if not project_id:
         return None
 
+    if settings.gcp_credentials_path:
+        credentials_path = Path(settings.gcp_credentials_path).expanduser()
+        if credentials_path.exists():
+            credentials = service_account.Credentials.from_service_account_file(str(credentials_path))
+            return storage.Client(project=project_id, credentials=credentials)
+
     return storage.Client(project=project_id)
+
+
+def upload_bytes_to_gcs(
+    *,
+    file_bytes: bytes,
+    stored_filename: str,
+    content_type: str,
+    metadata: dict[str, str] | None = None,
+) -> tuple[str, str]:
+    client = get_gcs_client()
+    if client is None:
+        raise RuntimeError("Google Cloud Storage client is not available")
+
+    bucket = client.bucket(settings.gcs_bucket_name)
+    blob_name = f"uploads/{stored_filename}"
+    blob = bucket.blob(blob_name)
+    if metadata:
+        blob.metadata = metadata
+    blob.upload_from_string(file_bytes, content_type=content_type)
+    return settings.gcs_bucket_name, blob_name
+
+
+def gcs_blob_exists(bucket_name: str, storage_path: str) -> bool:
+    client = get_gcs_client()
+    if client is None:
+        return False
+
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(storage_path)
+    return blob.exists()
+
+
+def delete_gcs_blob(bucket_name: str, storage_path: str) -> bool:
+    client = get_gcs_client()
+    if client is None:
+        return False
+
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(storage_path)
+    if not blob.exists():
+        return False
+    blob.delete()
+    return True
 
 
 def store_media_file_locally(file_bytes: bytes, stored_filename: str) -> tuple[str, str]:
@@ -62,17 +167,23 @@ def store_media_file_locally(file_bytes: bytes, stored_filename: str) -> tuple[s
     return 'local-media', stored_filename
 
 
-def store_media_file(file_bytes: bytes, stored_filename: str, content_type: str) -> tuple[str, str]:
+def store_media_file(
+    file_bytes: bytes,
+    stored_filename: str,
+    content_type: str,
+    metadata: dict[str, str] | None = None,
+) -> tuple[str, str]:
     client = get_gcs_client()
     if client is None:
         return store_media_file_locally(file_bytes, stored_filename)
 
     try:
-        bucket = client.bucket(settings.gcs_bucket_name)
-        blob_name = f'uploads/{stored_filename}'
-        blob = bucket.blob(blob_name)
-        blob.upload_from_string(file_bytes, content_type=content_type)
-        return settings.gcs_bucket_name, blob_name
+        return upload_bytes_to_gcs(
+            file_bytes=file_bytes,
+            stored_filename=stored_filename,
+            content_type=content_type,
+            metadata=metadata,
+        )
     except Exception as error:
         logger.warning('GCS upload failed for %s: %s. Falling back to local storage.', stored_filename, error)
         return store_media_file_locally(file_bytes, stored_filename)
@@ -97,13 +208,15 @@ def serialize_upload(
     upload_file: UploadFile | None = None,
     viewer_user_id: str | None = None,
 ) -> UploadResponse:
+    clean_description, tags = unpack_description_and_tags(upload.description)
     return UploadResponse(
         upload_id=upload.id,
         room_id=upload.room_id,
         uploader_user_id=upload.uploader_user_id,
         type=upload.type,
         title=upload.title,
-        description=upload.description,
+        description=clean_description,
+        tags=tags,
         status=upload.status,
         created_at=upload.created_at.isoformat() if upload.created_at else None,
         has_file=upload_file is not None,
@@ -151,7 +264,7 @@ def create_upload(payload: UploadCreateRequest, db: Session = Depends(get_db)):
         uploader_user_id=payload.uploader_user_id,
         type=payload.type,
         title=payload.title,
-        description=payload.description,
+        description=pack_description_with_tags(payload.description, payload.tags),
         status='uploaded',
     )
     db.add(upload)
@@ -203,10 +316,17 @@ async def upload_binary_file(
     suffix = Path(file.filename or '').suffix or '.bin'
     stored_filename = f"{upload_id}{suffix}"
     file_bytes = await file.read()
+    _, upload_tags = unpack_description_and_tags(upload.description)
     storage_bucket, storage_path = store_media_file(
         file_bytes,
         stored_filename,
         file.content_type or 'application/octet-stream',
+        metadata={
+            "upload_type": upload.type,
+            "upload_tags": json.dumps(upload_tags, ensure_ascii=False),
+            "room_id": upload.room_id,
+            "uploader_user_id": upload.uploader_user_id,
+        },
     )
 
     upload_file = UploadFile(

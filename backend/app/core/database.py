@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from google.cloud.sql.connector import Connector, IPTypes
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
@@ -7,8 +10,18 @@ from app.core.config import settings
 connector: Connector | None = None
 
 
+def _apply_google_credentials_env() -> None:
+    if not settings.gcp_credentials_path:
+        return
+
+    credentials_path = Path(settings.gcp_credentials_path).expanduser()
+    if credentials_path.exists():
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(credentials_path)
+
+
 def _build_engine():
     global connector
+    _apply_google_credentials_env()
 
     if settings.use_cloud_sql_connector:
         connector = Connector(refresh_strategy="LAZY")
@@ -31,11 +44,18 @@ def _build_engine():
             pool_recycle=1800,
         )
 
+    engine_kwargs = {
+        "echo": False,
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+    }
+
+    if settings.database_url.startswith("sqlite"):
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+
     return create_engine(
         settings.database_url,
-        echo=False,
-        pool_pre_ping=True,
-        pool_recycle=1800,
+        **engine_kwargs,
     )
 
 
@@ -50,3 +70,10 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def close_connector():
+    global connector
+    if connector is not None:
+        connector.close()
+        connector = None
