@@ -1,9 +1,11 @@
-﻿import uuid
+﻿import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.routes.uploads import LOCAL_MEDIA_ROOT, delete_gcs_blob
 from app.core.database import get_db
 from app.core.security import generate_invite_code
 from app.models.family import FamilyMember, FamilyRoom
@@ -19,6 +21,7 @@ from app.schemas.family import (
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[FamilyResponse])
@@ -170,11 +173,40 @@ def delete_family(room_id: str, user_id: str = Query(...), db: Session = Depends
     if room.owner_user_id != user_id:
         raise HTTPException(status_code=403, detail="Only the room owner can delete this family room")
 
+    upload_files = db.scalars(
+        select(UploadFile)
+        .join(Upload, Upload.id == UploadFile.upload_id)
+        .where(Upload.room_id == room_id)
+    ).all()
+
+    cleanup_failed: list[str] = []
+    for upload_file in upload_files:
+        try:
+            if upload_file.storage_bucket == "local-media":
+                local_path = LOCAL_MEDIA_ROOT / upload_file.storage_path
+                if local_path.exists():
+                    local_path.unlink()
+            else:
+                delete_gcs_blob(upload_file.storage_bucket, upload_file.storage_path)
+        except Exception as error:
+            cleanup_failed.append(upload_file.storage_path)
+            logger.warning(
+                "Failed to delete media file for room %s (%s/%s): %s",
+                room_id,
+                upload_file.storage_bucket,
+                upload_file.storage_path,
+                error,
+            )
+
     db.query(UploadFile).filter(UploadFile.upload_id.in_(select(Upload.id).where(Upload.room_id == room_id))).delete(synchronize_session=False)
     db.query(Upload).filter(Upload.room_id == room_id).delete(synchronize_session=False)
     db.query(FamilyMember).filter(FamilyMember.room_id == room_id).delete()
     db.delete(room)
     db.commit()
 
-    return {"deleted": True, "room_id": room_id}
+    return {
+        "deleted": True,
+        "room_id": room_id,
+        "media_cleanup_failed_count": len(cleanup_failed),
+    }
 

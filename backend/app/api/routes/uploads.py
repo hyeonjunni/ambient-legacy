@@ -160,7 +160,15 @@ def delete_gcs_blob(bucket_name: str, storage_path: str) -> bool:
     blob.delete()
     return True
 
+def delete_stored_media(upload_file: UploadFile) -> bool:
+    if upload_file.storage_bucket == 'local-media':
+        local_path = LOCAL_MEDIA_ROOT / upload_file.storage_path
+        if not local_path.exists():
+            return False
+        local_path.unlink()
+        return True
 
+    return delete_gcs_blob(upload_file.storage_bucket, upload_file.storage_path)
 def store_media_file_locally(file_bytes: bytes, stored_filename: str) -> tuple[str, str]:
     stored_path = LOCAL_MEDIA_ROOT / stored_filename
     stored_path.write_bytes(file_bytes)
@@ -398,3 +406,49 @@ def get_upload_content(upload_id: str, user_id: str = Query(...), db: Session = 
         media_type=upload_file.mime_type or 'application/octet-stream',
         headers=headers,
     )
+
+
+@router.delete('/{upload_id}')
+def delete_upload(upload_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+    upload = db.get(Upload, upload_id)
+    if upload is None:
+        raise HTTPException(status_code=404, detail='Upload not found')
+
+    room = db.get(FamilyRoom, upload.room_id)
+    if room is None:
+        raise HTTPException(status_code=404, detail='Family room not found')
+
+    ensure_room_member(db, upload.room_id, user_id)
+
+    if upload.uploader_user_id != user_id and room.owner_user_id != user_id:
+        raise HTTPException(status_code=403, detail='Only the uploader or family room owner can delete this upload')
+
+    upload_files = db.scalars(
+        select(UploadFile)
+        .where(UploadFile.upload_id == upload_id)
+        .order_by(UploadFile.created_at.desc(), UploadFile.id.desc())
+    ).all()
+
+    cleanup_failed: list[str] = []
+    for upload_file in upload_files:
+        try:
+            delete_stored_media(upload_file)
+        except Exception as error:
+            cleanup_failed.append(upload_file.storage_path)
+            logger.warning(
+                'Failed to delete upload media %s (%s/%s): %s',
+                upload_id,
+                upload_file.storage_bucket,
+                upload_file.storage_path,
+                error,
+            )
+
+    db.query(UploadFile).filter(UploadFile.upload_id == upload_id).delete(synchronize_session=False)
+    db.delete(upload)
+    db.commit()
+
+    return {
+        'deleted': True,
+        'upload_id': upload_id,
+        'media_cleanup_failed_count': len(cleanup_failed),
+    }
