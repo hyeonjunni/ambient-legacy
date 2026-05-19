@@ -1,15 +1,13 @@
-﻿import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.routes.uploads import LOCAL_MEDIA_ROOT, delete_gcs_blob
+from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.security import generate_invite_code
 from app.models.family import FamilyMember, FamilyRoom
-from app.models.upload import Upload, UploadFile
 from app.models.user import User
 from app.schemas.family import (
     FamilyCreateRequest,
@@ -18,18 +16,30 @@ from app.schemas.family import (
     FamilyMemberResponse,
     FamilyResponse,
 )
+from app.services.account_cleanup import delete_family_room_with_related_data
 
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+
+
+def ensure_family_member(db: Session, room_id: str, user_id: str) -> FamilyMember:
+    membership = db.scalar(
+        select(FamilyMember).where(
+            FamilyMember.room_id == room_id,
+            FamilyMember.user_id == user_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(status_code=403, detail="User is not a member of this family room")
+    return membership
 
 
 @router.get("", response_model=list[FamilyResponse])
-def list_user_families(user_id: str = Query(...), db: Session = Depends(get_db)):
+def list_user_families(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     memberships = db.execute(
         select(FamilyMember, FamilyRoom)
         .join(FamilyRoom, FamilyRoom.id == FamilyMember.room_id)
-        .where(FamilyMember.user_id == user_id)
+        .where(FamilyMember.user_id == current_user.id)
     ).all()
 
     return [
@@ -44,11 +54,7 @@ def list_user_families(user_id: str = Query(...), db: Session = Depends(get_db))
 
 
 @router.post("", response_model=FamilyResponse)
-def create_family(payload: FamilyCreateRequest, db: Session = Depends(get_db)):
-    owner = db.get(User, payload.owner_user_id)
-    if owner is None:
-        raise HTTPException(status_code=404, detail="Owner user not found")
-
+def create_family(payload: FamilyCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     invite_code = generate_invite_code()
     while db.scalar(select(FamilyRoom).where(FamilyRoom.invite_code == invite_code)) is not None:
         invite_code = generate_invite_code()
@@ -57,7 +63,7 @@ def create_family(payload: FamilyCreateRequest, db: Session = Depends(get_db)):
         id=str(uuid.uuid4()),
         name=payload.name,
         invite_code=invite_code,
-        owner_user_id=payload.owner_user_id,
+        owner_user_id=current_user.id,
     )
     db.add(room)
     db.flush()
@@ -65,7 +71,7 @@ def create_family(payload: FamilyCreateRequest, db: Session = Depends(get_db)):
     member = FamilyMember(
         id=str(uuid.uuid4()),
         room_id=room.id,
-        user_id=payload.owner_user_id,
+        user_id=current_user.id,
         role="owner",
     )
     db.add(member)
@@ -81,11 +87,7 @@ def create_family(payload: FamilyCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/join", response_model=FamilyResponse)
-def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db)):
-    user = db.get(User, payload.user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
+def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.scalar(select(FamilyRoom).where(FamilyRoom.invite_code == payload.invite_code))
     if room is None:
         raise HTTPException(status_code=404, detail="Family room not found")
@@ -93,7 +95,7 @@ def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db)):
     existing_member = db.scalar(
         select(FamilyMember).where(
             FamilyMember.room_id == room.id,
-            FamilyMember.user_id == payload.user_id,
+            FamilyMember.user_id == current_user.id,
         )
     )
 
@@ -102,7 +104,7 @@ def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db)):
             FamilyMember(
                 id=str(uuid.uuid4()),
                 room_id=room.id,
-                user_id=payload.user_id,
+                user_id=current_user.id,
                 role="member",
             )
         )
@@ -117,10 +119,12 @@ def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/{room_id}", response_model=FamilyDetailResponse)
-def get_family(room_id: str, db: Session = Depends(get_db)):
+def get_family(room_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.get(FamilyRoom, room_id)
     if room is None:
         raise HTTPException(status_code=404, detail="Family room not found")
+
+    ensure_family_member(db, room_id, current_user.id)
 
     member_count = db.scalar(
         select(func.count(FamilyMember.id)).where(FamilyMember.room_id == room_id)
@@ -136,10 +140,12 @@ def get_family(room_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{room_id}/members", response_model=list[FamilyMemberResponse])
-def list_family_members(room_id: str, db: Session = Depends(get_db)):
+def list_family_members(room_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.get(FamilyRoom, room_id)
     if room is None:
         raise HTTPException(status_code=404, detail="Family room not found")
+
+    ensure_family_member(db, room_id, current_user.id)
 
     member_rows = db.execute(
         select(FamilyMember, User)
@@ -165,48 +171,19 @@ def list_family_members(room_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{room_id}")
-def delete_family(room_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+def delete_family(room_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.get(FamilyRoom, room_id)
     if room is None:
         raise HTTPException(status_code=404, detail="Family room not found")
 
-    if room.owner_user_id != user_id:
+    if room.owner_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the room owner can delete this family room")
 
-    upload_files = db.scalars(
-        select(UploadFile)
-        .join(Upload, Upload.id == UploadFile.upload_id)
-        .where(Upload.room_id == room_id)
-    ).all()
-
-    cleanup_failed: list[str] = []
-    for upload_file in upload_files:
-        try:
-            if upload_file.storage_bucket == "local-media":
-                local_path = LOCAL_MEDIA_ROOT / upload_file.storage_path
-                if local_path.exists():
-                    local_path.unlink()
-            else:
-                delete_gcs_blob(upload_file.storage_bucket, upload_file.storage_path)
-        except Exception as error:
-            cleanup_failed.append(upload_file.storage_path)
-            logger.warning(
-                "Failed to delete media file for room %s (%s/%s): %s",
-                room_id,
-                upload_file.storage_bucket,
-                upload_file.storage_path,
-                error,
-            )
-
-    db.query(UploadFile).filter(UploadFile.upload_id.in_(select(Upload.id).where(Upload.room_id == room_id))).delete(synchronize_session=False)
-    db.query(Upload).filter(Upload.room_id == room_id).delete(synchronize_session=False)
-    db.query(FamilyMember).filter(FamilyMember.room_id == room_id).delete()
-    db.delete(room)
+    cleanup_failed_count = delete_family_room_with_related_data(db, room)
     db.commit()
 
     return {
         "deleted": True,
         "room_id": room_id,
-        "media_cleanup_failed_count": len(cleanup_failed),
+        "media_cleanup_failed_count": cleanup_failed_count,
     }
-

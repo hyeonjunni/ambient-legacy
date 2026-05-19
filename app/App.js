@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Dimensions,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,11 +15,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as ImagePicker from "expo-image-picker";
 
 const uploadTypes = [
@@ -130,21 +130,69 @@ const STORAGE_KEYS = {
   records: "ambient.records",
   familyRooms: "ambient.familyRooms",
   activeFamilyId: "ambient.activeFamilyId",
-  user: "ambient.user",
+  currentUser: "ambient.currentUser",
+  accessToken: "ambient.accessToken",
+  legacyUser: "ambient.user",
   apiBaseUrl: "ambient.apiBaseUrl",
   selectedModelId: "ambient.selectedModelId",
   selectedPersonaId: "ambient.selectedPersonaId",
 };
 
-const GOOGLE_WEB_CLIENT_ID = "279745599452-9tlm7fg2mndf6jk8nqo05cclh3hq0r9u.apps.googleusercontent.com";
-const DEFAULT_API_BASE_URL = "http://192.168.0.234:8000/api/v1";
+const DEFAULT_API_BASE_URL = "http://172.30.1.42:8000/api/v1";
 let runtimeApiBaseUrl = DEFAULT_API_BASE_URL;
-const KEYBOARD_AVOIDING_BEHAVIOR = Platform.OS === "ios" ? "padding" : undefined;
+let runtimeAccessToken = "";
+const KEYBOARD_AVOIDING_BEHAVIOR = Platform.OS === "ios" ? "padding" : "height";
+const BASE_TAB_BAR_BOTTOM_PADDING = 22;
+const BASE_SCROLL_BOTTOM_PADDING = 112;
 const COMMON_SINGLE_LINE_INPUT_PROPS = {
   returnKeyType: "done",
   blurOnSubmit: true,
   onSubmitEditing: Keyboard.dismiss,
 };
+
+function getAndroidBottomInset(windowHeight) {
+  if (Platform.OS !== "android") {
+    return 0;
+  }
+
+  const screenHeight = Dimensions.get("screen").height;
+  const measuredInset = Math.max(0, Math.round(screenHeight - windowHeight));
+  return Math.max(measuredInset, 28);
+}
+
+function useAndroidBottomInset() {
+  const { height: windowHeight } = useWindowDimensions();
+  const [bottomInset, setBottomInset] = useState(() => getAndroidBottomInset(windowHeight));
+
+  useEffect(() => {
+    setBottomInset(getAndroidBottomInset(windowHeight));
+  }, [windowHeight]);
+
+  return bottomInset;
+}
+
+function useKeyboardInset() {
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardInset(event.endCoordinates?.height || 0);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardInset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  return keyboardInset;
+}
 
 function normalizeApiBaseUrl(value) {
   const trimmed = (value || "").trim();
@@ -166,6 +214,15 @@ function setRuntimeApiBaseUrl(nextValue) {
 
 function getRuntimeApiBaseUrl() {
   return runtimeApiBaseUrl;
+}
+
+function setRuntimeAccessToken(nextToken) {
+  runtimeAccessToken = String(nextToken || "").trim();
+  return runtimeAccessToken;
+}
+
+function getRuntimeAccessToken() {
+  return runtimeAccessToken;
 }
 
 function buildApiUrl(path, baseUrl = null) {
@@ -196,12 +253,50 @@ function getReadableErrorMessage(error, fallbackMessage) {
   return error?.message || fallbackMessage;
 }
 
+function formatApiErrorDetail(detail, statusCode) {
+  if (!detail) {
+    return `요청에 실패했습니다. (${statusCode})`;
+  }
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const normalized = detail
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        if (item && typeof item === "object") {
+          const location = Array.isArray(item.loc) ? item.loc.join(" > ") : "";
+          const message = item.msg || item.message || JSON.stringify(item);
+          return location ? `${location}: ${message}` : message;
+        }
+
+        return String(item);
+      })
+      .filter(Boolean);
+
+    return normalized.join("\n");
+  }
+
+  if (typeof detail === "object") {
+    return detail.message || detail.detail || JSON.stringify(detail, null, 2);
+  }
+
+  return String(detail);
+}
+
 async function apiRequest(path, options = {}) {
+  const authToken = options.includeAuth === false ? "" : getRuntimeAccessToken();
   const response = await fetch(buildApiUrl(path, options.baseUrl || null), {
     method: options.method || "GET",
     headers: {
       Accept: "application/json",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(options.headers || {}),
     },
     body: options.body,
@@ -223,34 +318,30 @@ async function apiRequest(path, options = {}) {
       responseData && typeof responseData === "object"
         ? responseData.detail || responseData.message
         : null;
-
-    throw new Error(detail || `\uc694\uccad\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4. (${response.status})`);
+    throw new Error(formatApiErrorDetail(detail, response.status));
   }
 
   return responseData;
 }
 
-async function syncUserToBackend(payload) {
-  return apiRequest("/auth/google", {
+async function signupWithCredentials(payload) {
+  return apiRequest("/auth/signup", {
     method: "POST",
     body: JSON.stringify(payload),
+    includeAuth: false,
   });
 }
 
-async function loginDemoUserToBackend() {
-  return apiRequest("/auth/demo", {
+async function loginWithCredentials(payload) {
+  return apiRequest("/auth/login", {
     method: "POST",
+    body: JSON.stringify(payload),
+    includeAuth: false,
   });
 }
 
-function buildFallbackEmail(identityValue) {
-  const normalized = String(identityValue || "user")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return `${normalized || "user"}@ambientlegacy.app`;
+async function fetchCurrentUserProfile() {
+  return apiRequest("/auth/me");
 }
 
 function parseTagInput(value) {
@@ -277,39 +368,62 @@ function buildDefaultTagsForType(typeKey) {
   return ["텍스트", "가족기록"];
 }
 
+function mapBackendUser(payload, fallback = {}) {
+  return {
+    id: payload?.user_id || fallback.id || "",
+    username: payload?.username || fallback.username || "",
+    name: payload?.name || fallback.name || "사용자",
+    email: payload?.email || fallback.email || "",
+    picture: payload?.profile_image || fallback.picture || null,
+    age: payload?.age ?? fallback.age ?? null,
+    gender: payload?.gender || fallback.gender || null,
+    phone: payload?.phone || fallback.phone || null,
+    profileChunk: payload?.profile_chunk || fallback.profileChunk || null,
+  };
+}
+
 async function fetchFamilyMembers(roomId) {
   return apiRequest(`/families/${roomId}/members`);
 }
 
-async function fetchUserFamilies(userId) {
-  return apiRequest(`/families?user_id=${encodeURIComponent(userId)}`);
+async function fetchUserFamilies() {
+  return apiRequest("/families");
 }
 
-async function deleteFamily(roomId, userId) {
-  return apiRequest(`/families/${roomId}?user_id=${encodeURIComponent(userId)}`, {
+async function deleteFamily(roomId) {
+  return apiRequest(`/families/${roomId}`, {
     method: "DELETE",
   });
 }
 
-async function deleteUploadRecord(uploadId, userId) {
-  return apiRequest(`/uploads/${uploadId}?user_id=${encodeURIComponent(userId)}`, {
+async function deleteUploadRecord(uploadId) {
+  return apiRequest(`/uploads/${uploadId}`, {
     method: "DELETE",
   });
 }
 
-async function updateUserProfile(userId, payload) {
-  return apiRequest(`/auth/profile/${userId}`, {
+async function updateUserProfile(payload) {
+  return apiRequest("/auth/profile", {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
-async function checkBackendHealth(baseUrlOverride = null) {
-  return apiRequest("/system/health/db", baseUrlOverride ? { baseUrl: normalizeApiBaseUrl(baseUrlOverride) } : {});
+async function deleteCurrentAccount() {
+  return apiRequest("/auth/me", {
+    method: "DELETE",
+  });
 }
 
-async function fetchUploads(roomId, userId) {
-  return apiRequest(`/uploads/${roomId}?user_id=${encodeURIComponent(userId)}`);
+async function checkBackendHealth(baseUrlOverride = null) {
+  return apiRequest(
+    "/system/health/db",
+    baseUrlOverride ? { baseUrl: normalizeApiBaseUrl(baseUrlOverride), includeAuth: false } : { includeAuth: false }
+  );
+}
+
+async function fetchUploads(roomId) {
+  return apiRequest(`/uploads/${roomId}`);
 }
 
 async function createUploadEntry(payload) {
@@ -326,10 +440,9 @@ async function fetchAIDemoChat(payload) {
   });
 }
 
-async function bootstrapAIDemo(payload) {
+async function bootstrapAIDemo() {
   return apiRequest("/ai/demo-bootstrap", {
     method: "POST",
-    body: JSON.stringify(payload),
   });
 }
 
@@ -341,7 +454,7 @@ async function fetchAIPersonas() {
   return apiRequest("/ai/personas");
 }
 
-async function uploadMediaBinary(uploadId, userId, asset) {
+async function uploadMediaBinary(uploadId, asset) {
   const formData = new FormData();
   formData.append("file", {
     uri: asset.uri,
@@ -350,11 +463,12 @@ async function uploadMediaBinary(uploadId, userId, asset) {
   });
 
   const response = await fetch(
-    buildApiUrl(`/uploads/${uploadId}/binary?user_id=${encodeURIComponent(userId)}`),
+    buildApiUrl(`/uploads/${uploadId}/binary`),
     {
       method: "POST",
       headers: {
         Accept: "application/json",
+        ...(getRuntimeAccessToken() ? { Authorization: `Bearer ${getRuntimeAccessToken()}` } : {}),
       },
       body: formData,
     }
@@ -376,7 +490,7 @@ async function uploadMediaBinary(uploadId, userId, asset) {
       responseData && typeof responseData === "object"
         ? responseData.detail || responseData.message
         : null;
-    throw new Error(detail || `?? ???? ??????. (${response.status})`);
+    throw new Error(detail || `업로드 파일 전송에 실패했습니다. (${response.status})`);
   }
 
   return responseData;
@@ -432,37 +546,33 @@ function buildProfileDraft(user) {
 }
 
 function isProfileComplete(user) {
-  return Boolean(user?.name && user?.age && user?.gender && user?.phone && user?.email);
+  return Boolean(user?.age && user?.gender && user?.phone);
 }
 
-function isProfileFormComplete(draft) {
+function isProfileFormComplete(draft, mode = "complete") {
   const normalizedAge = draft?.age?.trim() ? Number.parseInt(draft.age.trim(), 10) : null;
 
-  return Boolean(
-    draft?.name?.trim() &&
-      Number.isFinite(normalizedAge) &&
+  const hasCoreFields = Boolean(
+    Number.isFinite(normalizedAge) &&
       normalizedAge > 0 &&
       draft?.gender?.trim() &&
-      draft?.phone?.trim() &&
-      draft?.email?.trim()
+      draft?.phone?.trim()
   );
+
+  if (mode === "edit") {
+    return Boolean(hasCoreFields && draft?.name?.trim() && draft?.email?.trim());
+  }
+
+  return hasCoreFields;
 }
 
 function getRoleLabel(role) {
   return role === "owner" ? "\ubc29\uc7a5" : "\uad6c\uc131\uc6d0";
 }
 
-function isGoogleAuthConfigured() {
-  const clientId = GOOGLE_WEB_CLIENT_ID.trim();
-
-  return Boolean(
-    clientId &&
-      clientId !== "YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com" &&
-      clientId.endsWith(".apps.googleusercontent.com")
-  );
-}
-
 export default function App() {
+  const bottomInset = useAndroidBottomInset();
+  const keyboardInset = useKeyboardInset();
   const [activeTab, setActiveTab] = useState("home");
   const [records, setRecords] = useState(initialItems);
   const [selectedType, setSelectedType] = useState(null);
@@ -477,22 +587,24 @@ export default function App() {
   const [storageLoaded, setStorageLoaded] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profileDraft, setProfileDraft] = useState(buildProfileDraft(null));
+  const [profileEditorMode, setProfileEditorMode] = useState("complete");
   const [profileSaving, setProfileSaving] = useState(false);
   const [uploadSaving, setUploadSaving] = useState(false);
   const [uploadSavingMessage, setUploadSavingMessage] = useState("업로드 중입니다.");
-  const [uploadResult, setUploadResult] = useState(null);
-  const [pendingDeleteRecord, setPendingDeleteRecord] = useState(null);
-  const [deleteSaving, setDeleteSaving] = useState(false);
-  const [deleteSavingMessage, setDeleteSavingMessage] = useState("기록을 삭제하고 있습니다.");
+  const [popupResult, setPopupResult] = useState(null);
+  const [popupConfirm, setPopupConfirm] = useState(null);
+  const [popupLoading, setPopupLoading] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [authLoadingMessage, setAuthLoadingMessage] = useState("로그인 정보를 확인하고 있습니다.");
   const [sessionRestoreLoading, setSessionRestoreLoading] = useState(false);
+  const [workspaceBootstrapLoading, setWorkspaceBootstrapLoading] = useState(false);
   const [availableModels, setAvailableModels] = useState(modelOptions);
   const [availablePersonas, setAvailablePersonas] = useState(personaOptions);
   const [selectedModelId, setSelectedModelId] = useState(modelOptions[0].id);
   const [selectedPersonaId, setSelectedPersonaId] = useState(personaOptions[0].id);
   const latestUserRef = useRef(null);
-  const googleAuthReady = isGoogleAuthConfigured();
+  const profileModalVisibleRef = useRef(false);
+  const profileSavingRef = useRef(false);
 
   const groupedRecords = useMemo(() => {
     return uploadTypes.map((type) => ({
@@ -516,16 +628,18 @@ export default function App() {
   useEffect(() => {
     async function loadPersistedData() {
       try {
-        const [savedUser, savedApiBaseUrl, savedModelId, savedPersonaId] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.user),
+        const [savedAccessToken, savedCurrentUser, savedApiBaseUrl, savedModelId, savedPersonaId] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.accessToken),
+          AsyncStorage.getItem(STORAGE_KEYS.currentUser),
           AsyncStorage.getItem(STORAGE_KEYS.apiBaseUrl),
           AsyncStorage.getItem(STORAGE_KEYS.selectedModelId),
           AsyncStorage.getItem(STORAGE_KEYS.selectedPersonaId),
         ]);
+        AsyncStorage.removeItem(STORAGE_KEYS.legacyUser);
 
-        let restoredUser = null;
-        if (savedUser) {
-          restoredUser = JSON.parse(savedUser);
+        let cachedUser = null;
+        if (savedCurrentUser) {
+          cachedUser = JSON.parse(savedCurrentUser);
         }
         if (savedApiBaseUrl) {
           const normalizedApiBaseUrl = setRuntimeApiBaseUrl(savedApiBaseUrl);
@@ -540,20 +654,30 @@ export default function App() {
           setSelectedPersonaId(savedPersonaId);
         }
 
-        if (restoredUser) {
+        if (savedAccessToken) {
           setSessionRestoreLoading(true);
+          setAuthLoadingMessage("저장된 계정 정보를 확인하고 있습니다.");
+          setRuntimeAccessToken(savedAccessToken);
           try {
-            const syncedUser = await ensureBackendUser(restoredUser, { force: true });
-            setUser(syncedUser);
-          } catch (_error) {
-            await AsyncStorage.removeItem(STORAGE_KEYS.user);
+            const restoredUser = await fetchCurrentUserProfile();
+            const mappedUser = mapBackendUser(restoredUser, cachedUser || {});
+            await bootstrapWorkspaceForUser(mappedUser);
+            setUser(mappedUser);
+          } catch (error) {
+            setRuntimeAccessToken("");
+            await AsyncStorage.multiRemove([STORAGE_KEYS.accessToken, STORAGE_KEYS.currentUser, STORAGE_KEYS.legacyUser]);
             setUser(null);
           } finally {
             setSessionRestoreLoading(false);
+            setAuthLoadingMessage("로그인 정보를 확인하고 있습니다.");
           }
+        } else if (cachedUser) {
+          setUser(null);
         }
       } catch (_error) {
-        Alert.alert("\uc800\uc7a5\ub41c \ub370\uc774\ud130 \ub85c\ub4dc \uc2e4\ud328", "\ub85c\uceec\uc5d0 \uc800\uc7a5\ub41c \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.");
+        showPopupResult("저장된 데이터 로드 실패", "로컬에 저장된 데이터를 불러오지 못했습니다.", {
+          variant: "error",
+        });
       } finally {
         setStorageLoaded(true);
       }
@@ -568,9 +692,9 @@ export default function App() {
     }
 
     if (user) {
-      AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+      AsyncStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(user));
     } else {
-      AsyncStorage.removeItem(STORAGE_KEYS.user);
+      AsyncStorage.removeItem(STORAGE_KEYS.currentUser);
     }
   }, [user, storageLoaded]);
 
@@ -655,19 +779,16 @@ export default function App() {
   }, [selectedPersonaId, storageLoaded]);
 
   useEffect(() => {
-    if (!googleAuthReady) {
-      return;
-    }
-
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      scopes: ["profile", "email"],
-    });
-  }, [googleAuthReady]);
-
-  useEffect(() => {
     latestUserRef.current = user;
   }, [user]);
+
+  useEffect(() => {
+    profileModalVisibleRef.current = profileModalVisible;
+  }, [profileModalVisible]);
+
+  useEffect(() => {
+    profileSavingRef.current = profileSaving;
+  }, [profileSaving]);
 
   useEffect(() => {
     if (!storageLoaded) {
@@ -684,12 +805,11 @@ export default function App() {
 
     async function syncFamiliesForCurrentUser() {
       try {
-        const ensuredUser = await ensureBackendUser(user, { force: true });
-        const rooms = await fetchUserFamilies(ensuredUser.id);
+        const rooms = await fetchUserFamilies();
         const hydratedRooms = await Promise.all(
           rooms.map(async (room) => {
             const members = await fetchFamilyMembers(room.room_id);
-            return mapFamilyRoom(room, members, ensuredUser.id);
+            return mapFamilyRoom(room, members, user.id);
           })
         );
 
@@ -722,16 +842,22 @@ export default function App() {
     }
 
     if (user && !isProfileComplete(user)) {
-      setProfileDraft(buildProfileDraft(user));
+      setProfileEditorMode("complete");
+      if (!profileModalVisibleRef.current || profileSavingRef.current) {
+        setProfileDraft(buildProfileDraft(user));
+      }
       setProfileModalVisible(true);
       return;
     }
 
-    setProfileModalVisible(false);
+    if (!profileModalVisibleRef.current || profileSavingRef.current) {
+      setProfileEditorMode("complete");
+      setProfileModalVisible(false);
+    }
   }, [user, storageLoaded, sessionRestoreLoading]);
 
   useEffect(() => {
-    if (activeTab !== "mypage" || !user || familyRooms.length === 0) {
+    if (activeTab !== "mypage" || !user || familyRooms.length === 0 || profileModalVisible) {
       return;
     }
 
@@ -748,7 +874,7 @@ export default function App() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [activeTab, user, familyRooms.length]);
+  }, [activeTab, user, familyRooms.length, profileModalVisible]);
 
   useEffect(() => {
     if (!storageLoaded) {
@@ -761,12 +887,10 @@ export default function App() {
     }
 
     let cancelled = false;
-    setRecords([]);
 
     async function syncUploadsForActiveFamily() {
       try {
-        const ensuredUser = await ensureBackendUser(user, { force: true });
-        const uploads = await fetchUploads(activeFamilyId, ensuredUser.id);
+        const uploads = await fetchUploads(activeFamilyId);
         if (cancelled) {
           return;
         }
@@ -789,19 +913,90 @@ export default function App() {
     setFamilyRooms((prev) => [nextRoom, ...prev.filter((room) => room.id !== nextRoom.id)]);
   }
 
+  async function fetchHydratedFamilyRoomsForUser(nextUser, preferredRoomId = null) {
+    const rooms = await fetchUserFamilies();
+    const hydratedRooms = await Promise.all(
+      rooms.map(async (room) => {
+        const members = await fetchFamilyMembers(room.room_id);
+        return mapFamilyRoom(room, members, nextUser.id);
+      })
+    );
+
+    const nextActiveFamilyId =
+      preferredRoomId && hydratedRooms.some((room) => room.id === preferredRoomId)
+        ? preferredRoomId
+        : hydratedRooms[0]?.id || null;
+
+    return {
+      hydratedRooms,
+      nextActiveFamilyId,
+    };
+  }
+
+  async function syncAIOptionsForSession() {
+    try {
+      const [models, personas] = await Promise.all([fetchAIModels(), fetchAIPersonas()]);
+
+      if (Array.isArray(models) && models.length > 0) {
+        const normalizedModels = models.map((item) => ({
+          id: item.id,
+          label: item.display_name,
+          placement: item.placement,
+          summary: item.notes,
+          provider: item.provider,
+        }));
+        setAvailableModels(normalizedModels);
+        setSelectedModelId((prev) => (
+          normalizedModels.some((item) => item.id === prev) ? prev : normalizedModels[0].id
+        ));
+      }
+
+      if (Array.isArray(personas) && personas.length > 0) {
+        const normalizedPersonas = personas.map((item) => ({
+          id: item.id,
+          label: item.label,
+          tone: item.tone,
+        }));
+        setAvailablePersonas(normalizedPersonas);
+        setSelectedPersonaId((prev) => (
+          normalizedPersonas.some((item) => item.id === prev) ? prev : normalizedPersonas[0].id
+        ));
+      }
+    } catch (_error) {
+    }
+  }
+
+  async function bootstrapWorkspaceForUser(nextUser) {
+    setWorkspaceBootstrapLoading(true);
+    setAuthLoadingMessage("가족방과 저장소를 불러오고 있습니다.");
+
+    try {
+      const [{ hydratedRooms, nextActiveFamilyId }] = await Promise.all([
+        fetchHydratedFamilyRoomsForUser(nextUser, activeFamilyId),
+        syncAIOptionsForSession(),
+      ]);
+
+      let nextRecords = [];
+      if (nextActiveFamilyId) {
+        const uploads = await fetchUploads(nextActiveFamilyId);
+        nextRecords = uploads.map(mapUploadToRecord);
+      }
+
+      setFamilyRooms(hydratedRooms);
+      setActiveFamilyId(nextActiveFamilyId);
+      setRecords(nextRecords);
+    } finally {
+      setWorkspaceBootstrapLoading(false);
+      setAuthLoadingMessage("로그인 정보를 확인하고 있습니다.");
+    }
+  }
+
   async function refreshFamilyRoomsFromBackend() {
     if (!user) {
       return;
     }
 
-    const ensuredUser = await ensureBackendUser(user, { force: true });
-    const rooms = await fetchUserFamilies(ensuredUser.id);
-    const refreshedRooms = await Promise.all(
-      rooms.map(async (room) => {
-        const members = await fetchFamilyMembers(room.room_id);
-        return mapFamilyRoom(room, members, ensuredUser.id);
-      })
-    );
+    const { hydratedRooms: refreshedRooms } = await fetchHydratedFamilyRoomsForUser(user, activeFamilyId);
 
     setFamilyRooms(refreshedRooms);
     setActiveFamilyId((prev) => {
@@ -820,8 +1015,7 @@ export default function App() {
       return [];
     }
 
-    const ensuredUser = ensuredUserOverride || (await ensureBackendUser(user, { force: true }));
-    const uploads = await fetchUploads(resolvedRoomId, ensuredUser.id);
+    const uploads = await fetchUploads(resolvedRoomId);
     const mappedRecords = uploads.map(mapUploadToRecord);
     setRecords(mappedRecords);
     return mappedRecords;
@@ -829,147 +1023,104 @@ export default function App() {
 
   async function handlePrepareDemoScenario() {
     if (!user) {
-      Alert.alert("로그인 필요", "데모 시나리오를 준비하려면 먼저 로그인해야 합니다.");
+      showPopupResult("로그인 필요", "데모 시나리오를 준비하려면 먼저 로그인해야 합니다.", {
+        variant: "error",
+      });
       return;
     }
 
     try {
       setUploadSaving(true);
       setUploadSavingMessage("데모 데이터를 준비하고 있습니다.");
-      const ensuredUser = await ensureBackendUser(user, { force: true });
-      const bootstrapResult = await bootstrapAIDemo({ user_id: ensuredUser.id });
+      const bootstrapResult = await bootstrapAIDemo();
       await refreshFamilyRoomsFromBackend();
-      await refreshUploadsFromBackend(bootstrapResult.room_id, ensuredUser);
+      await refreshUploadsFromBackend(bootstrapResult.room_id);
       setActiveFamilyId(bootstrapResult.room_id);
       setActiveTab("chat");
-      Alert.alert(
+      showPopupResult(
         "데모 데이터 준비 완료",
         `${bootstrapResult.room_name}에 ${bootstrapResult.seeded_uploads}개의 샘플 기록과 ${bootstrapResult.seeded_files || 0}개의 파일을 준비했습니다.`
       );
     } catch (error) {
-      Alert.alert("데모 준비 실패", getReadableErrorMessage(error, "데모 시나리오를 준비하지 못했습니다."));
+      showPopupResult("데모 준비 실패", getReadableErrorMessage(error, "데모 시나리오를 준비하지 못했습니다."), {
+        variant: "error",
+      });
     } finally {
       setUploadSaving(false);
       setUploadSavingMessage("업로드 중입니다.");
     }
   }
 
-  async function ensureBackendUser(currentUser, options = {}) {
-    if (!currentUser) {
-      throw new Error("\ub85c\uadf8\uc778\uc774 \ud544\uc694\ud569\ub2c8\ub2e4.");
+  async function establishAuthenticatedSession(session) {
+    const nextToken = session?.access_token;
+    const nextUser = mapBackendUser(session?.user);
+
+    if (!nextToken || !nextUser.id) {
+      throw new Error("로그인 세션 정보를 확인하지 못했습니다.");
     }
 
-    if (currentUser.isBackendSynced && !options.force) {
-      return currentUser;
-    }
-
-    const resolvedIdentity = currentUser.googleSub || currentUser.email || currentUser.id || "user";
-    const resolvedEmail = currentUser.email || buildFallbackEmail(resolvedIdentity);
-    const syncPayload = {
-      google_sub: resolvedIdentity,
-      email: resolvedEmail,
-      name: currentUser.name || currentUser.email || "\uc0ac\uc6a9\uc790",
-      profile_image: currentUser.picture || null,
-    };
-
-    const backendUser = await syncUserToBackend(syncPayload);
-    const syncedUser = {
-      id: backendUser.user_id,
-      googleSub: syncPayload.google_sub,
-      name: backendUser.name || syncPayload.name,
-      email: backendUser.email || syncPayload.email,
-      picture: backendUser.profile_image || currentUser.picture || null,
-      age: backendUser.age || null,
-      gender: backendUser.gender || null,
-      phone: backendUser.phone || null,
-      profileChunk: backendUser.profile_chunk || null,
-      isBackendSynced: true,
-    };
-
-    const latestIdentity = latestUserRef.current?.googleSub || latestUserRef.current?.email || latestUserRef.current?.id || null;
-    const currentIdentity = currentUser?.googleSub || currentUser?.email || currentUser?.id || null;
-
-    if (latestIdentity && latestIdentity === currentIdentity) {
-      setUser(syncedUser);
-    }
-
-    return syncedUser;
+    setRuntimeAccessToken(nextToken);
+    await AsyncStorage.setItem(STORAGE_KEYS.accessToken, nextToken);
+    setFamilyRooms([]);
+    setActiveFamilyId(null);
+    setRecords([]);
+    setActiveTab("home");
+    await bootstrapWorkspaceForUser(nextUser);
+    setUser(nextUser);
+    return nextUser;
   }
 
-  async function handleGoogleLogin() {
-    if (!googleAuthReady) {
-      Alert.alert(
-        "Google Web Client ID 설정 필요",
-        "Google Cloud에서 웹 애플리케이션 Client ID를 만든 뒤 App.js의 GOOGLE_WEB_CLIENT_ID에 넣어야 실제 Google 로그인이 동작합니다."
-      );
-      return;
-    }
-
+  async function handleCredentialLogin({ username, password }) {
     try {
       setAuthLoading(true);
-      setAuthLoadingMessage("Google 계정 정보를 확인하고 있습니다.");
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const result = await GoogleSignin.signIn();
-      const profile = result?.data?.user || result?.user;
-
-      if (!profile) {
-        Alert.alert("로그인 실패", "Google 프로필 정보를 받지 못했습니다.");
-        return;
-      }
-
-      const provisionalUser = {
-        id: profile.id || profile.email || profile.name || "google-user",
-        googleSub: profile.id || profile.email || profile.name || "google-user",
-        name: profile.name || profile.email || "Google User",
-        email: profile.email || buildFallbackEmail(profile.id || profile.name || "google-user"),
-        picture: profile.photo || null,
-        isBackendSynced: false,
-      };
-
-      setAuthLoadingMessage("기존 사용자 정보를 확인하고 있습니다.");
-      const backendUser = await ensureBackendUser(provisionalUser);
-      if (!backendUser?.id) {
-        throw new Error("백엔드 사용자 동기화에 실패했습니다.");
-      }
-
-      setUser(backendUser);
+      setAuthLoadingMessage("로그인 정보를 확인하고 있습니다.");
+      const session = await loginWithCredentials({
+        username,
+        password,
+      });
+      await establishAuthenticatedSession(session);
     } catch (error) {
-      if (error?.code === statusCodes.SIGN_IN_CANCELLED) {
-        return;
-      }
-
+      setRuntimeAccessToken("");
       setUser(null);
-      Alert.alert("로그인 실패", getReadableErrorMessage(error, "Google 로그인 중 문제가 발생했습니다."));
+      await AsyncStorage.multiRemove([STORAGE_KEYS.accessToken, STORAGE_KEYS.currentUser]);
+      await AsyncStorage.removeItem(STORAGE_KEYS.legacyUser);
+      showPopupResult("로그인 실패", getReadableErrorMessage(error, "아이디 또는 비밀번호를 확인해주세요."), {
+        variant: "error",
+      });
+      throw error;
     } finally {
       setAuthLoading(false);
       setAuthLoadingMessage("로그인 정보를 확인하고 있습니다.");
     }
   }
 
-  async function handleDemoLogin() {
+  async function handleCredentialSignup({ username, password, confirmPassword, name, email }) {
+    if (password !== confirmPassword) {
+      showPopupResult("회원가입 실패", "비밀번호 확인이 일치하지 않습니다.", {
+        variant: "error",
+      });
+      return;
+    }
+
     try {
       setAuthLoading(true);
-      setAuthLoadingMessage("데모 계정 정보를 확인하고 있습니다.");
-      const backendUser = await loginDemoUserToBackend();
-      if (!backendUser?.user_id) {
-        throw new Error("백엔드 사용자 동기화에 실패했습니다.");
-      }
-
-      setUser({
-        id: backendUser.user_id,
-        googleSub: "demo-user",
-        name: backendUser.name || "데모 사용자",
-        email: backendUser.email || "demo@ambientlegacy.app",
-        picture: backendUser.profile_image || null,
-        age: backendUser.age || null,
-        gender: backendUser.gender || null,
-        phone: backendUser.phone || null,
-        profileChunk: backendUser.profile_chunk || null,
-        isBackendSynced: true,
+      setAuthLoadingMessage("새 계정을 생성하고 있습니다.");
+      const session = await signupWithCredentials({
+        username,
+        password,
+        name,
+        email,
       });
+      await establishAuthenticatedSession(session);
     } catch (error) {
+      setRuntimeAccessToken("");
       setUser(null);
-      Alert.alert("데모 로그인 실패", getReadableErrorMessage(error, "백엔드 사용자 동기화에 실패했습니다."));
+      await AsyncStorage.multiRemove([STORAGE_KEYS.accessToken, STORAGE_KEYS.currentUser]);
+      await AsyncStorage.removeItem(STORAGE_KEYS.legacyUser);
+      showPopupResult("회원가입 실패", getReadableErrorMessage(error, "계정을 생성하지 못했습니다."), {
+        variant: "error",
+      });
+      throw error;
     } finally {
       setAuthLoading(false);
       setAuthLoadingMessage("로그인 정보를 확인하고 있습니다.");
@@ -979,43 +1130,115 @@ export default function App() {
   async function handleSaveApiBaseUrl(nextValue) {
     const normalizedApiBaseUrl = setRuntimeApiBaseUrl(nextValue);
     setApiBaseUrl(normalizedApiBaseUrl);
-    Alert.alert("테스트 서버 저장 완료", normalizedApiBaseUrl);
+    showPopupResult("테스트 서버 저장 완료", normalizedApiBaseUrl, {
+      variant: "success",
+      hint: "로그인과 가족방 동작은 이 서버 주소를 기준으로 진행됩니다.",
+    });
     return normalizedApiBaseUrl;
   }
 
-    async function handleCheckBackendConnection(nextValue = null) {
+  async function handleCheckBackendConnection(nextValue = null) {
     const candidateBaseUrl = normalizeApiBaseUrl(nextValue || apiBaseUrl);
 
     try {
       const result = await checkBackendHealth(candidateBaseUrl);
       if (result?.database === "connected") {
-        Alert.alert("서버 연결 성공", `현재 테스트 서버\n${candidateBaseUrl}`);
+        showPopupResult("서버 연결 성공", `현재 테스트 서버\n${candidateBaseUrl}`, {
+          variant: "success",
+          hint: "이 주소로 가족방과 업로드 기능을 계속 테스트할 수 있습니다.",
+        });
         return true;
       }
 
-      Alert.alert("서버 연결 실패", `응답은 왔지만 예상한 형식이 아닙니다.\n${candidateBaseUrl}`);
+      showPopupResult("서버 연결 실패", `응답은 왔지만 예상한 형식이 아닙니다.\n${candidateBaseUrl}`, {
+        variant: "error",
+      });
       return false;
     } catch (error) {
-      Alert.alert("서버 연결 실패", getReadableErrorMessage(error, `백엔드 연결을 확인하지 못했습니다.\n${candidateBaseUrl}`));
+      showPopupResult(
+        "서버 연결 실패",
+        getReadableErrorMessage(error, `백엔드 연결을 확인하지 못했습니다.\n${candidateBaseUrl}`),
+        { variant: "error" }
+      );
       return false;
     }
   }
-async function handleLogout() {
-    latestUserRef.current = null;
 
-    try {
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.user,
-        STORAGE_KEYS.familyRooms,
-        STORAGE_KEYS.activeFamilyId,
-      ]);
-    } catch (_error) {
+  function showPopupResult(title, message, options = {}) {
+    setPopupResult({
+      title,
+      message,
+      variant: options.variant || "success",
+      hint:
+        options.hint ||
+        (options.variant === "error"
+          ? "입력 내용과 연결 상태를 다시 확인한 뒤 한 번 더 시도해주세요."
+          : "이 작업 결과는 현재 화면과 연결된 데이터에 바로 반영됩니다."),
+      buttonLabel: options.buttonLabel || "확인",
+    });
+  }
+
+  function closePopupResult() {
+    setPopupResult(null);
+  }
+
+  function openPopupConfirm(config) {
+    setPopupConfirm({
+      confirmLabel: "확인",
+      cancelLabel: "취소",
+      variant: "danger",
+      ...config,
+    });
+  }
+
+  function closePopupConfirm() {
+    if (popupLoading) {
+      return;
+    }
+    setPopupConfirm(null);
+  }
+
+  async function handlePopupConfirm() {
+    if (!popupConfirm?.onConfirm) {
+      return;
+    }
+
+    const currentConfirm = popupConfirm;
+    setPopupConfirm(null);
+
+    if (currentConfirm.loadingTitle || currentConfirm.loadingMessage) {
+      setPopupLoading({
+        title: currentConfirm.loadingTitle || "처리 중",
+        message: currentConfirm.loadingMessage || "잠시만 기다려주세요.",
+        accentColor: currentConfirm.variant === "danger" ? "#DC2626" : "#2563EB",
+      });
     }
 
     try {
-      if (googleAuthReady) {
-        await GoogleSignin.signOut();
-      }
+      await currentConfirm.onConfirm();
+    } catch (error) {
+      showPopupResult(
+        currentConfirm.errorTitle || "처리 실패",
+        getReadableErrorMessage(error, currentConfirm.errorMessage || "요청을 처리하지 못했습니다."),
+        { variant: "error" }
+      );
+    } finally {
+      setPopupLoading(null);
+    }
+  }
+
+  async function handleLogout() {
+    latestUserRef.current = null;
+    setRuntimeAccessToken("");
+
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.currentUser,
+        STORAGE_KEYS.accessToken,
+        STORAGE_KEYS.legacyUser,
+        STORAGE_KEYS.familyRooms,
+        STORAGE_KEYS.activeFamilyId,
+      ]);
     } catch (_error) {
     }
 
@@ -1023,95 +1246,150 @@ async function handleLogout() {
     setFamilyRooms([]);
     setActiveFamilyId(null);
     setRecords([]);
+    setProfileModalVisible(false);
+    setProfileEditorMode("complete");
+    setProfileDraft(buildProfileDraft(null));
     setActiveTab("home");
   }
 
   function openProfileEditor() {
+    setProfileEditorMode("edit");
     setProfileDraft(buildProfileDraft(user));
     setProfileModalVisible(true);
   }
 
+  function closeProfileEditor() {
+    if (profileSaving) {
+      return;
+    }
+
+    setProfileDraft(buildProfileDraft(user));
+    setProfileEditorMode("complete");
+    setProfileModalVisible(false);
+  }
+
   async function handleSaveProfile() {
-    const cleanName = profileDraft.name.trim();
-    const cleanEmail = profileDraft.email.trim();
+    const cleanName = profileDraft.name.trim() || user?.name || "";
+    const cleanEmail = profileDraft.email.trim() || user?.email || "";
     const cleanPhone = profileDraft.phone.trim();
     const cleanGender = profileDraft.gender.trim();
     const normalizedAge = profileDraft.age.trim() ? Number.parseInt(profileDraft.age.trim(), 10) : null;
 
     if (!user?.id) {
-      Alert.alert("저장 실패", "로그인 정보가 확인되지 않아 개인정보를 저장할 수 없습니다.");
+      showPopupResult("저장 실패", "로그인 정보가 확인되지 않아 개인정보를 저장할 수 없습니다.", {
+        variant: "error",
+      });
       return;
     }
 
-    if (!cleanName) {
-      Alert.alert("이름 입력 필요", "가족 멤버 상세정보에 표시할 이름을 입력해주세요.");
+    if (profileEditorMode === "edit" && !cleanName) {
+      showPopupResult("이름 입력 필요", "가족 멤버 상세정보에 표시할 이름을 입력해주세요.", {
+        variant: "error",
+      });
+      return;
+    }
+
+    if (profileEditorMode === "edit" && !cleanEmail) {
+      showPopupResult("이메일 입력 필요", "연락 가능한 이메일을 입력해주세요.", {
+        variant: "error",
+      });
       return;
     }
 
     if (profileDraft.age.trim() && (!Number.isFinite(normalizedAge) || normalizedAge <= 0)) {
-      Alert.alert("나이 입력 오류", "나이는 1 이상의 숫자로 입력해주세요.");
+      showPopupResult("나이 입력 오류", "나이는 1 이상의 숫자로 입력해주세요.", {
+        variant: "error",
+      });
       return;
     }
 
     setProfileSaving(true);
 
     try {
-      const ensuredUser = await ensureBackendUser(user, { force: true });
-      const updatedProfile = await updateUserProfile(ensuredUser.id, {
+      const updatedProfile = await updateUserProfile({
         name: cleanName,
         age: normalizedAge,
         gender: cleanGender || null,
         phone: cleanPhone || null,
-        email: cleanEmail || ensuredUser.email || "",
+        email: cleanEmail || user.email || "",
       });
 
       const nextUser = {
-        ...ensuredUser,
+        ...user,
         name: updatedProfile.name || cleanName,
-        email: updatedProfile.email || cleanEmail || ensuredUser.email || "",
+        username: updatedProfile.username || user.username || "",
+        email: updatedProfile.email || cleanEmail || user.email || "",
         age: updatedProfile.age ?? normalizedAge,
         gender: updatedProfile.gender || cleanGender || null,
         phone: updatedProfile.phone || cleanPhone || null,
         profileChunk: updatedProfile.profile_chunk || null,
-        isBackendSynced: true,
       };
 
       setUser(nextUser);
       setProfileDraft(buildProfileDraft(nextUser));
+      setProfileEditorMode("complete");
       setProfileModalVisible(false);
-      Alert.alert("\uac1c\uc778\uc815\ubcf4 \uc785\ub825 \uc644\ub8cc", "\uac1c\uc778\uc815\ubcf4\uac00 \uc785\ub825\ub418\uc5c8\uc2b5\ub2c8\ub2e4.");
+      showPopupResult(
+        profileEditorMode === "edit" ? "내 정보 수정 완료" : "개인정보 입력 완료",
+        profileEditorMode === "edit" ? "내 정보가 수정되었습니다." : "개인정보가 입력되었습니다."
+      );
     } catch (error) {
-      Alert.alert("개인정보 저장 실패", getReadableErrorMessage(error, "개인정보를 저장하지 못했습니다."));
+      showPopupResult("개인정보 저장 실패", getReadableErrorMessage(error, "개인정보를 저장하지 못했습니다."), {
+        variant: "error",
+      });
     } finally {
       setProfileSaving(false);
     }
   }
 
+  async function handleDeleteAccount() {
+    openPopupConfirm({
+      title: "회원탈퇴",
+      message: "정말 회원탈퇴하시겠습니까?",
+      hint: "가족방 소유 정보와 업로드 데이터가 함께 정리되며 되돌릴 수 없습니다.",
+      confirmLabel: "회원탈퇴",
+      variant: "danger",
+      loadingTitle: "회원탈퇴 중",
+      loadingMessage: "계정과 연결된 데이터를 정리하고 있습니다.",
+      errorTitle: "회원탈퇴 실패",
+      errorMessage: "계정을 삭제하지 못했습니다.",
+      onConfirm: async () => {
+        await deleteCurrentAccount();
+        await handleLogout();
+        showPopupResult("회원탈퇴 완료", "계정과 연결된 로컬 세션을 정리했습니다.");
+      },
+    });
+  }
+
   async function handleCreateFamily(familyName) {
     const cleanName = familyName.trim();
     if (!cleanName) {
-      Alert.alert("\uac00\uc871\ubc29 \uc774\ub984 \ud544\uc694", "\uc0dd\uc131\ud560 \uac00\uc871\ubc29 \uc774\ub984\uc744 \uc785\ub825\ud574\uc8fc\uc138\uc694.");
+      showPopupResult("가족방 이름 필요", "생성할 가족방 이름을 입력해주세요.", {
+        variant: "error",
+      });
       return false;
     }
 
     try {
-      const ensuredUser = await ensureBackendUser(user, { force: true });
       const createdRoom = await apiRequest("/families", {
         method: "POST",
         body: JSON.stringify({
-          owner_user_id: ensuredUser.id,
           name: cleanName,
         }),
       });
       const members = await fetchFamilyMembers(createdRoom.room_id);
-      const normalizedRoom = mapFamilyRoom(createdRoom, members, ensuredUser.id);
+      const normalizedRoom = mapFamilyRoom(createdRoom, members, user.id);
 
       upsertFamilyRoom(normalizedRoom);
       setActiveFamilyId(normalizedRoom.id);
-      Alert.alert("\uac00\uc871\ubc29 \uc0dd\uc131 \uc644\ub8cc", `\ucd08\ub300 \ucf54\ub4dc: ${normalizedRoom.code}`);
+      showPopupResult("가족방 생성 완료", `초대 코드: ${normalizedRoom.code}`, {
+        hint: `${normalizedRoom.name} 가족방이 준비되었습니다.`,
+      });
       return true;
     } catch (error) {
-      Alert.alert("\uac00\uc871\ubc29 \uc0dd\uc131 \uc2e4\ud328", getReadableErrorMessage(error, "\uac00\uc871\ubc29\uc744 \uc0dd\uc131\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4."));
+      showPopupResult("가족방 생성 실패", getReadableErrorMessage(error, "가족방을 생성하지 못했습니다."), {
+        variant: "error",
+      });
       return false;
     }
   }
@@ -1119,66 +1397,67 @@ async function handleLogout() {
   async function handleJoinFamily(inviteCode) {
     const cleanCode = inviteCode.trim().toUpperCase();
     if (!cleanCode) {
-      Alert.alert("\ucf54\ub4dc \uc785\ub825 \ud544\uc694", "\uc785\uc7a5\ud560 \uac00\uc871\ubc29 \ucf54\ub4dc\ub97c \uc785\ub825\ud574\uc8fc\uc138\uc694.");
+      showPopupResult("코드 입력 필요", "입장할 가족방 코드를 입력해주세요.", {
+        variant: "error",
+      });
       return false;
     }
 
     try {
-      const ensuredUser = await ensureBackendUser(user, { force: true });
       const joinedRoom = await apiRequest("/families/join", {
         method: "POST",
         body: JSON.stringify({
-          user_id: ensuredUser.id,
           invite_code: cleanCode,
         }),
       });
       const members = await fetchFamilyMembers(joinedRoom.room_id);
-      const normalizedRoom = mapFamilyRoom(joinedRoom, members, ensuredUser.id);
+      const normalizedRoom = mapFamilyRoom(joinedRoom, members, user.id);
 
       upsertFamilyRoom(normalizedRoom);
       setActiveFamilyId(normalizedRoom.id);
-      Alert.alert("\uc785\uc7a5 \uc644\ub8cc", `${normalizedRoom.name}\uc5d0 \uc785\uc7a5\ud588\uc2b5\ub2c8\ub2e4.`);
+      showPopupResult("입장 완료", `${normalizedRoom.name}에 입장했습니다.`);
       return true;
     } catch (error) {
-      Alert.alert("\uac00\uc871\ubc29 \uc785\uc7a5 \uc2e4\ud328", getReadableErrorMessage(error, "\uac00\uc871\ubc29\uc5d0 \uc785\uc7a5\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4."));
+      showPopupResult("가족방 입장 실패", getReadableErrorMessage(error, "가족방에 입장하지 못했습니다."), {
+        variant: "error",
+      });
       return false;
     }
   }
 
   function handleDeleteFamily(room) {
     if (!user?.id) {
-      Alert.alert("삭제 실패", "로그인 정보가 확인되지 않아 가족방을 삭제할 수 없습니다.");
+      showPopupResult("삭제 실패", "로그인 정보가 확인되지 않아 가족방을 삭제할 수 없습니다.", {
+        variant: "error",
+      });
       return;
     }
 
-    Alert.alert(
-      "가족방 삭제",
-      `"${room.name}" 가족방을 삭제할까요?
-초대 코드와 멤버 연결 정보가 함께 제거됩니다.`,
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "삭제",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFamily(room.id, user.id);
-              setFamilyRooms((prev) => prev.filter((item) => item.id !== room.id));
-              setActiveFamilyId((prev) => (prev === room.id ? null : prev));
-              Alert.alert("가족방 삭제 완료", "가족방이 삭제되었습니다.");
-              refreshFamilyRoomsFromBackend().catch(() => {});
-            } catch (error) {
-              Alert.alert("가족방 삭제 실패", getReadableErrorMessage(error, "가족방을 삭제하지 못했습니다."));
-            }
-          },
-        },
-      ]
-    );
+    openPopupConfirm({
+      title: "가족방 삭제",
+      message: `"${room.name}" 가족방을 삭제할까요?`,
+      hint: "초대 코드와 멤버 연결 정보가 함께 제거됩니다.",
+      confirmLabel: "삭제",
+      variant: "danger",
+      loadingTitle: "가족방 삭제 중",
+      loadingMessage: `${room.name} 가족방과 연결된 정보를 정리하고 있습니다.`,
+      errorTitle: "가족방 삭제 실패",
+      errorMessage: "가족방을 삭제하지 못했습니다.",
+      onConfirm: async () => {
+        await deleteFamily(room.id);
+        setFamilyRooms((prev) => prev.filter((item) => item.id !== room.id));
+        setActiveFamilyId((prev) => (prev === room.id ? null : prev));
+        refreshFamilyRoomsFromBackend().catch(() => {});
+        showPopupResult("가족방 삭제 완료", "가족방이 삭제되었습니다.");
+      },
+    });
   }
 
   async function handleUploadPress(typeKey) {
     if (!activeFamily?.id) {
-      Alert.alert("가족방 선택 필요", "업로드를 시작하려면 먼저 가족방을 생성하거나 입장해주세요.");
+      showPopupResult("가족방 선택 필요", "업로드를 시작하려면 먼저 가족방을 생성하거나 입장해주세요.", {
+        variant: "error",
+      });
       setActiveTab("mypage");
       return;
     }
@@ -1200,32 +1479,33 @@ async function handleLogout() {
   }
 
   function showUploadResult(title, message) {
-    setUploadResult({ title, message });
-  }
-
-  function closeUploadResult() {
-    setUploadResult(null);
+    showPopupResult(title, message, {
+      variant: title.includes("실패") ? "error" : "success",
+      hint:
+        title === "삭제 완료"
+          ? "가족방 저장소와 연결된 미디어 정보까지 함께 정리되었습니다."
+          : "가족방 저장소에서 방금 반영된 내용을 바로 확인할 수 있습니다.",
+    });
   }
 
   function openDeleteRecordConfirm(item) {
-    setPendingDeleteRecord(item);
-  }
-
-  function closeDeleteRecordConfirm() {
-    if (deleteSaving) {
-      return;
-    }
-    setPendingDeleteRecord(null);
+    openPopupConfirm({
+      title: "기록 삭제",
+      message: "정말 삭제하시겠습니까?",
+      hint: "삭제한 기록은 되돌릴 수 없으며, 저장소와 연결된 파일도 함께 정리됩니다.",
+      confirmLabel: "삭제",
+      variant: "danger",
+      onConfirm: () => handleDeleteRecord(item),
+    });
   }
 
   async function pickMediaFile(typeKey) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
-        "권한이 필요합니다",
-        "이미지와 영상을 업로드하려면 사진 보관함 접근 권한을 허용해야 합니다."
-      );
+      showPopupResult("권한이 필요합니다", "이미지와 영상을 업로드하려면 사진 보관함 접근 권한을 허용해야 합니다.", {
+        variant: "error",
+      });
       return;
     }
 
@@ -1260,21 +1540,21 @@ async function handleLogout() {
 
       setUploadSaving(true);
       setUploadSavingMessage(`${label}를 업로드하고 있습니다.`);
-      const ensuredUser = await ensureBackendUser(user, { force: true });
       const uploadEntry = await createUploadEntry({
         room_id: activeFamily.id,
-        uploader_user_id: ensuredUser.id,
         type: typeKey,
         title: fileName,
         description: meta || `${label} 파일 업로드`,
         tags: buildDefaultTagsForType(typeKey),
       });
-      await uploadMediaBinary(uploadEntry.upload_id, ensuredUser.id, asset);
-      await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
+      await uploadMediaBinary(uploadEntry.upload_id, asset);
+      await refreshUploadsFromBackend(activeFamily.id);
       setActiveTab("storage");
       showUploadResult("업로드 완료", `${label} 업로드 정보와 파일이 가족방에 저장되었습니다.`);
     } catch (error) {
-      Alert.alert("업로드 실패", getReadableErrorMessage(error, `${label} 업로드 정보를 저장하지 못했습니다.`));
+      showPopupResult("업로드 실패", getReadableErrorMessage(error, `${label} 업로드 정보를 저장하지 못했습니다.`), {
+        variant: "error",
+      });
     } finally {
       setUploadSaving(false);
       setUploadSavingMessage("업로드 중입니다.");
@@ -1290,16 +1570,24 @@ async function handleLogout() {
   }
 
   async function handleOpenMedia(item) {
-    const targetUrl = item?.fileUrl || item?.uri;
+    const targetUrl = item?.fileUrl
+      ? `${item.fileUrl}${item.fileUrl.includes("?") ? "&" : "?"}access_token=${encodeURIComponent(
+          getRuntimeAccessToken()
+        )}`
+      : item?.uri;
     if (!targetUrl) {
-      Alert.alert("파일 보기 불가", "아직 확인할 수 있는 사진 또는 영상 파일이 없습니다.");
+      showPopupResult("파일 보기 불가", "아직 확인할 수 있는 사진 또는 영상 파일이 없습니다.", {
+        variant: "error",
+      });
       return;
     }
 
     try {
       await Linking.openURL(targetUrl);
     } catch (error) {
-      Alert.alert("파일 열기 실패", getReadableErrorMessage(error, "미디어 파일을 열지 못했습니다."));
+      showPopupResult("파일 열기 실패", getReadableErrorMessage(error, "미디어 파일을 열지 못했습니다."), {
+        variant: "error",
+      });
     }
   }
 
@@ -1309,7 +1597,9 @@ async function handleLogout() {
     }
 
     if (!activeFamily?.id) {
-      Alert.alert("가족방 선택 필요", "업로드를 시작하려면 먼저 가족방을 생성하거나 입장해주세요.");
+      showPopupResult("가족방 선택 필요", "업로드를 시작하려면 먼저 가족방을 생성하거나 입장해주세요.", {
+        variant: "error",
+      });
       setActiveTab("mypage");
       return;
     }
@@ -1317,67 +1607,179 @@ async function handleLogout() {
     try {
       setUploadSaving(true);
       setUploadSavingMessage(`${selectedTypeInfo?.label || "기록"} 업로드 정보를 저장하고 있습니다.`);
-      const ensuredUser = await ensureBackendUser(user, { force: true });
       await createUploadEntry({
         room_id: activeFamily.id,
-        uploader_user_id: ensuredUser.id,
         type: selectedType,
         title: formTitle.trim(),
         description: formDetail.trim() || "추가 설명 없음",
         tags: parseTagInput(formTags).length > 0 ? parseTagInput(formTags) : buildDefaultTagsForType(selectedType),
       });
-      await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
+      await refreshUploadsFromBackend(activeFamily.id);
       closeUploadModal();
       setActiveTab("storage");
       showUploadResult("업로드 완료", "업로드 정보가 가족방 기준으로 저장되었습니다.");
     } catch (error) {
-      Alert.alert("업로드 저장 실패", getReadableErrorMessage(error, "업로드 정보를 저장하지 못했습니다."));
+      showPopupResult("업로드 저장 실패", getReadableErrorMessage(error, "업로드 정보를 저장하지 못했습니다."), {
+        variant: "error",
+      });
     } finally {
       setUploadSaving(false);
       setUploadSavingMessage("업로드 중입니다.");
     }
   }
 
-  async function handleDeleteRecord() {
-    if (!pendingDeleteRecord?.id || !activeFamily?.id) {
+  async function handleDeleteRecord(item) {
+    if (!item?.id || !activeFamily?.id) {
       return;
     }
 
     try {
-      setDeleteSaving(true);
-      setDeleteSavingMessage(`${pendingDeleteRecord.title || "기록"}을 삭제하고 있습니다.`);
-      const ensuredUser = await ensureBackendUser(user, { force: true });
-      await deleteUploadRecord(pendingDeleteRecord.id, ensuredUser.id);
-      setPendingDeleteRecord(null);
-      await refreshUploadsFromBackend(activeFamily.id, ensuredUser);
+      setPopupLoading({
+        title: "삭제 중",
+        message: `${item.title || "기록"}을 삭제하고 있습니다.`,
+        accentColor: "#DC2626",
+      });
+      await deleteUploadRecord(item.id);
+      await refreshUploadsFromBackend(activeFamily.id);
       showUploadResult("삭제 완료", "선택한 기록이 저장소와 클라우드에서 정리되었습니다.");
     } catch (error) {
-      Alert.alert("기록 삭제 실패", getReadableErrorMessage(error, "기록을 삭제하지 못했습니다."));
+      showPopupResult("기록 삭제 실패", getReadableErrorMessage(error, "기록을 삭제하지 못했습니다."), {
+        variant: "error",
+      });
     } finally {
-      setDeleteSaving(false);
-      setDeleteSavingMessage("기록을 삭제하고 있습니다.");
+      setPopupLoading(null);
     }
   }
 
-  const selectedTypeInfo = uploadTypes.find((item) => item.key === selectedType);
-  const profileFormComplete = isProfileFormComplete(profileDraft);
+  function renderPopupModals() {
+    const resultVariant = popupResult?.variant || "success";
+    const resultAccentColor = resultVariant === "error" ? "#DC2626" : "#2563EB";
+    const resultIconBackgroundColor = resultVariant === "error" ? "#FEE2E2" : "#DBEAFE";
+    const resultIconText = resultVariant === "error" ? "!" : "✓";
+    const loadingAccentColor = popupLoading?.accentColor || "#2563EB";
+    const confirmIsDanger = popupConfirm?.variant === "danger";
 
-  if (!storageLoaded || sessionRestoreLoading) {
-    return <LoadingScreen />;
+    return (
+      <>
+        <Modal transparent visible={Boolean(popupConfirm)} onRequestClose={closePopupConfirm}>
+          <View style={styles.centerModalBackdrop}>
+            <View style={styles.uploadLoadingSheet}>
+              <View
+                style={[
+                  styles.deleteConfirmIcon,
+                  !confirmIsDanger
+                    ? {
+                        backgroundColor: "#DBEAFE",
+                      }
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.deleteConfirmIconText,
+                    !confirmIsDanger
+                      ? {
+                          color: "#2563EB",
+                        }
+                      : null,
+                  ]}
+                >
+                  {confirmIsDanger ? "!" : "?"}
+                </Text>
+              </View>
+              <Text style={styles.uploadLoadingTitle}>{popupConfirm?.title || "확인"}</Text>
+              <Text style={styles.uploadLoadingDescription}>{popupConfirm?.message || "이 작업을 진행할까요?"}</Text>
+              {popupConfirm?.hint ? <Text style={styles.uploadLoadingHint}>{popupConfirm.hint}</Text> : null}
+              <View style={styles.resultButtonRow}>
+                <Pressable style={styles.resultSecondaryButton} onPress={closePopupConfirm}>
+                  <Text style={styles.resultSecondaryButtonText}>{popupConfirm?.cancelLabel || "취소"}</Text>
+                </Pressable>
+                <Pressable
+                  style={confirmIsDanger ? styles.resultDangerButton : styles.uploadResultButton}
+                  onPress={handlePopupConfirm}
+                >
+                  <Text style={confirmIsDanger ? styles.resultDangerButtonText : styles.uploadResultButtonText}>
+                    {popupConfirm?.confirmLabel || "확인"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal transparent visible={Boolean(popupLoading)} onRequestClose={() => {}}>
+          <View style={styles.centerModalBackdrop}>
+            <View style={styles.uploadLoadingSheet}>
+              <ActivityIndicator size="large" color={loadingAccentColor} />
+              <Text style={styles.uploadLoadingTitle}>{popupLoading?.title || "처리 중"}</Text>
+              <Text style={styles.uploadLoadingDescription}>{popupLoading?.message || "잠시만 기다려주세요."}</Text>
+              <Text style={styles.uploadLoadingHint}>
+                {popupLoading?.hint || "작업이 완료되면 결과를 안내해드립니다."}
+              </Text>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal transparent visible={Boolean(popupResult)} onRequestClose={closePopupResult}>
+          <View style={styles.centerModalBackdrop}>
+            <View style={styles.uploadLoadingSheet}>
+              <View
+                style={[
+                  styles.uploadResultIcon,
+                  {
+                    backgroundColor: resultIconBackgroundColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.uploadResultIconText,
+                    {
+                      color: resultAccentColor,
+                    },
+                  ]}
+                >
+                  {resultIconText}
+                </Text>
+              </View>
+              <Text style={styles.uploadLoadingTitle}>{popupResult?.title || "완료"}</Text>
+              <Text style={styles.uploadLoadingDescription}>{popupResult?.message || "작업이 완료되었습니다."}</Text>
+              <Text style={styles.uploadLoadingHint}>
+                {popupResult?.hint || "계속 진행하려면 확인 버튼을 눌러주세요."}
+              </Text>
+              <Pressable style={styles.uploadResultButton} onPress={closePopupResult}>
+                <Text style={styles.uploadResultButtonText}>{popupResult?.buttonLabel || "확인"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
+  }
+
+  const selectedTypeInfo = uploadTypes.find((item) => item.key === selectedType);
+  const profileFormComplete = isProfileFormComplete(profileDraft, profileEditorMode);
+
+  if (!storageLoaded || sessionRestoreLoading || workspaceBootstrapLoading) {
+    return <LoadingScreen message={authLoadingMessage} />;
   }
 
   if (!user) {
     return (
-      <LoginScreen
-        googleAuthReady={googleAuthReady}
-        apiBaseUrl={apiBaseUrl}
-        authLoading={authLoading}
-        authLoadingMessage={authLoadingMessage}
-        onGoogleLogin={handleGoogleLogin}
-        onDemoLogin={handleDemoLogin}
-        onSaveApiBaseUrl={handleSaveApiBaseUrl}
-        onCheckBackendConnection={handleCheckBackendConnection}
-      />
+      <>
+        <LoginScreen
+          apiBaseUrl={apiBaseUrl}
+          authLoading={authLoading}
+          authLoadingMessage={authLoadingMessage}
+          bottomInset={bottomInset}
+          onLogin={handleCredentialLogin}
+          onSignup={handleCredentialSignup}
+          onSaveApiBaseUrl={handleSaveApiBaseUrl}
+          onCheckBackendConnection={handleCheckBackendConnection}
+          onShowPopupResult={showPopupResult}
+        />
+        {renderPopupModals()}
+      </>
     );
   }
 
@@ -1400,6 +1802,7 @@ async function handleLogout() {
             <ChatDemoScreen
               user={user}
               activeFamily={activeFamily}
+              bottomInset={bottomInset}
               modelOptions={availableModels}
               personaOptions={availablePersonas}
               selectedModel={selectedModel}
@@ -1408,11 +1811,13 @@ async function handleLogout() {
               onSelectPersona={setSelectedPersonaId}
               onPrepareDemoScenario={handlePrepareDemoScenario}
               busy={uploadSaving}
+              onShowPopupResult={showPopupResult}
             />
           )}
           {activeTab === "storage" && (
             <StorageScreen
               groupedRecords={groupedRecords}
+              bottomInset={bottomInset}
               onViewMedia={handleOpenMedia}
               onDeleteRecord={openDeleteRecordConfirm}
             />
@@ -1422,45 +1827,70 @@ async function handleLogout() {
               user={user}
               familyRooms={familyRooms}
               activeFamily={activeFamily}
+              bottomInset={bottomInset}
               onCreateFamily={handleCreateFamily}
               onJoinFamily={handleJoinFamily}
               onLogout={handleLogout}
+              onDeleteAccount={handleDeleteAccount}
               onOpenProfileEditor={openProfileEditor}
               onDeleteFamily={handleDeleteFamily}
             />
           )}
         </View>
 
-        <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
+        <BottomTabs activeTab={activeTab} bottomInset={bottomInset} onChange={setActiveTab} />
       </View>
 
-      <Modal transparent visible={profileModalVisible} onRequestClose={() => {}}>
-        <KeyboardAvoidingView
-          style={styles.centerModalBackdrop}
-          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
-        >
+      <Modal
+        transparent
+        visible={profileModalVisible}
+        onRequestClose={profileEditorMode === "edit" ? closeProfileEditor : () => {}}
+      >
+        <View style={styles.centerModalBackdrop}>
           <ScrollView
-            contentContainerStyle={styles.centerModalScrollContent}
+            contentContainerStyle={[
+              styles.centerModalScrollContent,
+              {
+                paddingBottom: 28 + bottomInset,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-          <View style={styles.profileModalSheet}>
-            <Text style={styles.modalTitle}>{"\uac1c\uc778\uc815\ubcf4 \uc785\ub825"}</Text>
-            <Text style={styles.modalDescription}>{"\uad6c\uae00 \ub85c\uadf8\uc778 \ud6c4 \uac00\uc871 \uba64\ubc84 \uc0c1\uc138\uc815\ubcf4\uc5d0 \uc0ac\uc6a9\ud560 \uae30\ubcf8 \uc815\ubcf4\ub97c \uc785\ub825\ud574\uc8fc\uc138\uc694. \uc800\uc7a5 \uc2dc \ud504\ub85c\ud544 \uccad\ud06c\ub85c \ud568\uaed8 \ubcf4\uad00\ub429\ub2c8\ub2e4."}</Text>
-            <Text style={styles.modalHint}>{"\ubaa8\ub4e0 \ud56d\ubaa9\uc744 \uc785\ub825\ud574\uc57c \ud655\uc778 \ubc84\ud2bc\uc774 \ud65c\uc131\ud654\ub429\ub2c8\ub2e4."}</Text>
+          <View
+            style={[
+              styles.profileModalSheet,
+              Platform.OS === "android" && keyboardInset > 0
+                ? { marginBottom: Math.max(12, keyboardInset - bottomInset) }
+                : null,
+            ]}
+          >
+            <Text style={styles.modalTitle}>{profileEditorMode === "edit" ? "내 정보 수정" : "개인정보 입력"}</Text>
+            <Text style={styles.modalDescription}>
+              {profileEditorMode === "edit"
+                ? "현재 계정의 개인정보를 수정합니다. 변경한 내용은 가족 멤버 상세정보와 프로필 청크에 함께 반영됩니다."
+                : "회원가입 시 저장한 이름과 이메일을 제외한 기본 정보를 입력해주세요. 저장 시 프로필 청크로 함께 보관됩니다."}
+            </Text>
+            <Text style={styles.modalHint}>
+              {profileEditorMode === "edit"
+                ? "이름, 이메일, 나이, 성별, 휴대폰번호를 모두 확인한 뒤 저장해주세요."
+                : "나이, 성별, 휴대폰번호를 입력해야 확인 버튼이 활성화됩니다."}
+            </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{"\uc774\ub984"}</Text>
-              <TextInput
-                {...COMMON_SINGLE_LINE_INPUT_PROPS}
-                value={profileDraft.name}
-                onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
-                placeholder="\uc608: \ud64d\uae38\ub3d9"
-                placeholderTextColor="#94A3B8"
-                style={styles.textInput}
-              />
-            </View>
+            {profileEditorMode === "edit" ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>이름</Text>
+                <TextInput
+                  {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                  value={profileDraft.name}
+                  onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, name: value }))}
+                  placeholder="예: 홍길동"
+                  placeholderTextColor="#94A3B8"
+                  style={styles.textInput}
+                />
+              </View>
+            ) : null}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{"\ub098\uc774"}</Text>
@@ -1503,45 +1933,60 @@ async function handleLogout() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{"\uc774\uba54\uc77c"}</Text>
-              <TextInput
-                {...COMMON_SINGLE_LINE_INPUT_PROPS}
-                value={profileDraft.email}
-                onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, email: value }))}
-                placeholder="\uc608: name@example.com"
-                placeholderTextColor="#94A3B8"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.textInput}
-              />
-            </View>
+            {profileEditorMode === "edit" ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>이메일</Text>
+                <TextInput
+                  {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                  value={profileDraft.email}
+                  onChangeText={(value) => setProfileDraft((prev) => ({ ...prev, email: value }))}
+                  placeholder="예: name@example.com"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={styles.textInput}
+                />
+              </View>
+            ) : null}
 
             <View style={styles.modalButtons}>
-              <Pressable style={[styles.modalButton, styles.cancelButton, profileSaving && styles.disabledButton]} onPress={handleLogout} disabled={profileSaving}>
-                <Text style={styles.cancelButtonText}>{"\ub85c\uadf8\uc544\uc6c3"}</Text>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton, profileSaving && styles.disabledButton]}
+                onPress={profileEditorMode === "edit" ? closeProfileEditor : handleLogout}
+                disabled={profileSaving}
+              >
+                <Text style={styles.cancelButtonText}>{profileEditorMode === "edit" ? "취소" : "로그아웃"}</Text>
               </Pressable>
               <Pressable style={[styles.modalButton, styles.submitButton, (!profileFormComplete || profileSaving) && styles.disabledButton]} onPress={handleSaveProfile} disabled={!profileFormComplete || profileSaving}>
-                <Text style={styles.submitButtonText}>{profileSaving ? "\uc800\uc7a5 \uc911..." : "\ud655\uc778"}</Text>
+                <Text style={styles.submitButtonText}>{profileSaving ? "\uc800\uc7a5 \uc911..." : profileEditorMode === "edit" ? "저장" : "확인"}</Text>
               </Pressable>
             </View>
           </View>
           </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={closeUploadModal}>
-        <KeyboardAvoidingView
-          style={styles.modalBackdrop}
-          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
-        >
+        <View style={styles.modalBackdrop}>
           <ScrollView
-            contentContainerStyle={styles.modalScrollContent}
+            contentContainerStyle={[
+              styles.modalScrollContent,
+              {
+                paddingBottom: bottomInset,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-          <View style={styles.modalSheet}>
+          <View
+            style={[
+              styles.modalSheet,
+              Platform.OS === "android" && keyboardInset > 0
+                ? { marginBottom: Math.max(12, keyboardInset - bottomInset) }
+                : null,
+            ]}
+          >
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{selectedTypeInfo ? `${selectedTypeInfo.label} 업로드` : "업로드"}</Text>
             <Text style={styles.modalDescription}>
@@ -1595,7 +2040,7 @@ async function handleLogout() {
             </View>
           </View>
           </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <Modal transparent visible={uploadSaving} onRequestClose={() => {}}>
@@ -1608,63 +2053,14 @@ async function handleLogout() {
           </View>
         </View>
       </Modal>
-
-      <Modal transparent visible={Boolean(pendingDeleteRecord)} onRequestClose={closeDeleteRecordConfirm}>
-        <View style={styles.centerModalBackdrop}>
-          <View style={styles.uploadLoadingSheet}>
-            <View style={styles.deleteConfirmIcon}>
-              <Text style={styles.deleteConfirmIconText}>!</Text>
-            </View>
-            <Text style={styles.uploadLoadingTitle}>기록 삭제</Text>
-            <Text style={styles.uploadLoadingDescription}>정말 삭제하시겠습니까?</Text>
-            <Text style={styles.uploadLoadingHint}>
-              삭제한 기록은 되돌릴 수 없으며, 저장소와 연결된 파일도 함께 정리됩니다.
-            </Text>
-            <View style={styles.resultButtonRow}>
-              <Pressable style={[styles.resultSecondaryButton, deleteSaving && styles.disabledButton]} onPress={closeDeleteRecordConfirm} disabled={deleteSaving}>
-                <Text style={styles.resultSecondaryButtonText}>취소</Text>
-              </Pressable>
-              <Pressable style={[styles.resultDangerButton, deleteSaving && styles.disabledButton]} onPress={handleDeleteRecord} disabled={deleteSaving}>
-                <Text style={styles.resultDangerButtonText}>삭제</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal transparent visible={deleteSaving} onRequestClose={() => {}}>
-        <View style={styles.centerModalBackdrop}>
-          <View style={styles.uploadLoadingSheet}>
-            <ActivityIndicator size="large" color="#DC2626" />
-            <Text style={styles.uploadLoadingTitle}>삭제 중</Text>
-            <Text style={styles.uploadLoadingDescription}>{deleteSavingMessage}</Text>
-            <Text style={styles.uploadLoadingHint}>잠시만 기다려주세요. 삭제가 완료되면 결과를 안내해드립니다.</Text>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal transparent visible={Boolean(uploadResult)} onRequestClose={closeUploadResult}>
-        <View style={styles.centerModalBackdrop}>
-          <View style={styles.uploadLoadingSheet}>
-            <View style={styles.uploadResultIcon}>
-              <Text style={styles.uploadResultIconText}>✓</Text>
-            </View>
-            <Text style={styles.uploadLoadingTitle}>{uploadResult?.title || "업로드 완료"}</Text>
-            <Text style={styles.uploadLoadingDescription}>{uploadResult?.message || "업로드가 완료되었습니다."}</Text>
-            <Text style={styles.uploadLoadingHint}>가족방 저장소에서 방금 올린 기록을 바로 확인할 수 있습니다.</Text>
-            <Pressable style={styles.uploadResultButton} onPress={closeUploadResult}>
-              <Text style={styles.uploadResultButtonText}>확인</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      {renderPopupModals()}
     </SafeAreaView>
   );
 }
 
 
 
-function LoadingScreen() {
+function LoadingScreen({ message = "업로드 기록과 가족방 정보를 확인하고 있습니다." }) {
   return (
     <SafeAreaView style={[styles.safeArea, styles.loginSafeArea]}>
       <ExpoStatusBar style="light" />
@@ -1672,42 +2068,100 @@ function LoadingScreen() {
       <View style={styles.loadingScreen}>
         <Text style={styles.loginEyebrow}>Ambient Digital Legacy</Text>
         <Text style={styles.loadingTitle}>{"\uc800\uc7a5\ub41c \uae30\ub85d\uc744 \ubd88\ub7ec\uc624\ub294 \uc911"}</Text>
-        <Text style={styles.loginDescription}>{"\uc5c5\ub85c\ub4dc \uae30\ub85d\uacfc \uac00\uc871\ubc29 \uc815\ubcf4\ub97c \ud655\uc778\ud558\uace0 \uc788\uc2b5\ub2c8\ub2e4."}</Text>
+        <Text style={styles.loginDescription}>{message}</Text>
       </View>
     </SafeAreaView>
   );
 }
 
 function LoginScreen({
-  googleAuthReady,
   apiBaseUrl,
   authLoading,
   authLoadingMessage,
-  onGoogleLogin,
-  onDemoLogin,
+  bottomInset,
+  onLogin,
+  onSignup,
   onSaveApiBaseUrl,
   onCheckBackendConnection,
+  onShowPopupResult,
 }) {
   const [serverUrlInput, setServerUrlInput] = useState(apiBaseUrl);
+  const [authMode, setAuthMode] = useState("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     setServerUrlInput(apiBaseUrl);
   }, [apiBaseUrl]);
 
-    async function submitServerUrl() {
+  async function submitServerUrl() {
     await onSaveApiBaseUrl(serverUrlInput);
   }
 
   async function submitServerCheck() {
     await onCheckBackendConnection(serverUrlInput);
   }
+
+  async function submitAuth() {
+    const cleanUsername = username.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanUsername || !cleanPassword) {
+      onShowPopupResult("입력 필요", "아이디와 비밀번호를 입력해주세요.", {
+        variant: "error",
+      });
+      return;
+    }
+
+    if (authMode === "signup") {
+      const cleanName = name.trim();
+      const cleanEmail = email.trim();
+
+      if (!cleanName || !cleanEmail) {
+        onShowPopupResult("입력 필요", "회원가입에는 이름과 이메일도 필요합니다.", {
+          variant: "error",
+        });
+        return;
+      }
+
+      try {
+        await onSignup({
+          username: cleanUsername,
+          password: cleanPassword,
+          confirmPassword,
+          name: cleanName,
+          email: cleanEmail,
+        });
+      } catch (_error) {
+      }
+      return;
+    }
+
+    try {
+      await onLogin({
+        username: cleanUsername,
+        password: cleanPassword,
+      });
+    } catch (_error) {
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.safeArea, styles.loginSafeArea]}>
       <ExpoStatusBar style="light" />
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
         <ScrollView
-          contentContainerStyle={styles.loginScreen}
+          contentContainerStyle={[
+            styles.loginScreen,
+            {
+              paddingBottom:
+                56 + bottomInset,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -1716,12 +2170,12 @@ function LoginScreen({
           <Text style={styles.loginEyebrow}>Ambient Digital Legacy</Text>
           <Text style={styles.loginTitle}>{"\uac00\uc871 \uae30\ub85d\uc744\n\uc548\uc804\ud558\uac8c \ubcf4\uad00\ud558\ub294 \uc571"}</Text>
           <Text style={styles.loginDescription}>
-            {"Google \uacc4\uc815\uc73c\ub85c \ub85c\uadf8\uc778\ud55c \ud6c4 \uc74c\uc131, \ud14d\uc2a4\ud2b8, \uc774\ubbf8\uc9c0, \uc601\uc0c1 \uae30\ub85d\uc744 \uc5c5\ub85c\ub4dc\ud558\uace0 \uc800\uc7a5\uc18c\uc5d0\uc11c \ud655\uc778\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4."}
+            {"아이디와 비밀번호로 로그인한 뒤 음성, 텍스트, 이미지, 영상 기록을 업로드하고 저장소에서 확인할 수 있습니다."}
           </Text>
         </View>
 
         <View style={styles.loginCard}>
-          <Text style={styles.loginCardTitle}>{"\ub85c\uadf8\uc778"}</Text>
+          <Text style={styles.loginCardTitle}>{authMode === "login" ? "로그인" : "회원가입"}</Text>
 
           <View style={styles.serverConfigBox}>
             <Text style={styles.inputLabel}>{"\ud14c\uc2a4\ud2b8 \uc11c\ubc84 \uc8fc\uc18c"}</Text>
@@ -1747,16 +2201,102 @@ function LoginScreen({
             <Text style={styles.loginHint}>{`현재 서버: ${apiBaseUrl}`}</Text>
           </View>
 
+          <View style={styles.authFieldStack}>
+            <View>
+              <Text style={styles.inputLabel}>아이디</Text>
+              <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="예: sungbin3120"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.textInput}
+              />
+            </View>
+
+            <View>
+              <Text style={styles.inputLabel}>비밀번호</Text>
+              <TextInput
+                {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="비밀번호를 입력해주세요"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                style={styles.textInput}
+              />
+            </View>
+
+            {authMode === "signup" ? (
+              <>
+                <View>
+                  <Text style={styles.inputLabel}>비밀번호 확인</Text>
+                  <TextInput
+                    {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="비밀번호를 다시 입력해주세요"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    style={styles.textInput}
+                  />
+                </View>
+
+                <View>
+                  <Text style={styles.inputLabel}>이름</Text>
+                  <TextInput
+                    {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="예: 박성빈"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.textInput}
+                  />
+                </View>
+
+                <View>
+                  <Text style={styles.inputLabel}>이메일</Text>
+                  <TextInput
+                    {...COMMON_SINGLE_LINE_INPUT_PROPS}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="예: name@example.com"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    style={styles.textInput}
+                  />
+                </View>
+              </>
+            ) : null}
+          </View>
+
           <Pressable
-            style={[styles.googleButton, (!googleAuthReady || authLoading) && styles.googleButtonDisabled]}
-            onPress={onGoogleLogin}
-            disabled={!googleAuthReady || authLoading}
+            style={[styles.demoButton, authLoading && styles.disabledButton]}
+            onPress={submitAuth}
+            disabled={authLoading}
           >
-            <Text style={styles.googleLogo}>G</Text>
-            <Text style={styles.googleButtonText}>{authLoading ? "기존 사용자 확인 중..." : "Google \uacc4\uc815\uc73c\ub85c \uacc4\uc18d"}</Text>
+            <Text style={styles.demoButtonText}>
+              {authLoading ? authLoadingMessage : authMode === "login" ? "로그인" : "회원가입"}
+            </Text>
           </Pressable>
-          <Pressable style={[styles.demoButton, authLoading && styles.disabledButton]} onPress={onDemoLogin} disabled={authLoading}>
-            <Text style={styles.demoButtonText}>{authLoading ? "잠시만 기다려주세요" : "\ub370\ubaa8 \uacc4\uc815\uc73c\ub85c \uba3c\uc800 \ub4e4\uc5b4\uac00\uae30"}</Text>
+          <Pressable
+            style={[styles.googleButton, authLoading && styles.googleButtonDisabled]}
+            onPress={() => setAuthMode((prev) => (prev === "login" ? "signup" : "login"))}
+            disabled={authLoading}
+          >
+            <Text style={styles.googleButtonText}>
+              {authMode === "login" ? "회원가입으로 전환" : "이미 계정이 있어요"}
+            </Text>
           </Pressable>
           {authLoading ? (
             <View style={styles.loginLoadingBox}>
@@ -1764,11 +2304,11 @@ function LoginScreen({
               <Text style={styles.loginLoadingText}>{authLoadingMessage}</Text>
             </View>
           ) : null}
-          {!googleAuthReady ? (
-            <Text style={styles.loginHint}>
-              {"\uc2e4\uc81c Google \ub85c\uadf8\uc778\uc744 \uc0ac\uc6a9\ud558\ub824\uba74 App.js\uc758 Client ID \uc124\uc815\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."}
-            </Text>
-          ) : null}
+          <Text style={styles.loginHint}>
+            {authMode === "login"
+              ? "가입한 아이디와 비밀번호로 바로 로그인할 수 있습니다."
+              : "회원가입 후 바로 로그인된 상태로 메인 화면에 진입합니다."}
+          </Text>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1855,6 +2395,7 @@ function HomeScreen({ records, onUploadPress }) {
 function ChatDemoScreen({
   user,
   activeFamily,
+  bottomInset,
   modelOptions,
   personaOptions,
   selectedModel,
@@ -1863,6 +2404,7 @@ function ChatDemoScreen({
   onSelectPersona,
   onPrepareDemoScenario,
   busy,
+  onShowPopupResult,
 }) {
   const inferenceLabel =
     selectedModel?.placement === "device" ? "이 기기에서 생성됨" : "가족 금고 정본 모델에서 생성됨";
@@ -1873,12 +2415,16 @@ function ChatDemoScreen({
 
   async function handleRunChatDemo() {
     if (!user?.id) {
-      Alert.alert("로그인 필요", "AI 데모를 실행하려면 먼저 로그인해야 합니다.");
+      onShowPopupResult("로그인 필요", "AI 데모를 실행하려면 먼저 로그인해야 합니다.", {
+        variant: "error",
+      });
       return;
     }
 
     if (!activeFamily?.id) {
-      Alert.alert("가족방 필요", "AI 데모를 실행하려면 먼저 가족방을 생성하거나 입장해주세요.");
+      onShowPopupResult("가족방 필요", "AI 데모를 실행하려면 먼저 가족방을 생성하거나 입장해주세요.", {
+        variant: "error",
+      });
       return;
     }
 
@@ -1886,14 +2432,15 @@ function ChatDemoScreen({
       setChatLoading(true);
       const result = await fetchAIDemoChat({
         room_id: activeFamily.id,
-        user_id: user.id,
         model_id: selectedModel.id,
         persona_id: selectedPersona.id,
         query: query.trim() || "가족 기록을 요약해줘.",
       });
       setChatResult(result);
     } catch (error) {
-      Alert.alert("AI 데모 호출 실패", getReadableErrorMessage(error, "AI 데모 응답을 불러오지 못했습니다."));
+      onShowPopupResult("AI 데모 호출 실패", getReadableErrorMessage(error, "AI 데모 응답을 불러오지 못했습니다."), {
+        variant: "error",
+      });
     } finally {
       setChatLoading(false);
     }
@@ -1909,7 +2456,17 @@ function ChatDemoScreen({
 
   return (
     <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+    <ScrollView
+      contentContainerStyle={[
+        styles.scrollContent,
+          {
+          paddingBottom: BASE_SCROLL_BOTTOM_PADDING + bottomInset,
+          },
+        ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.chatIntroCard}>
         <Text style={styles.sectionTitle}>개인화 AI 설정 데모</Text>
         <Text style={styles.sectionDescription}>
@@ -2045,7 +2602,7 @@ function ChatDemoScreen({
   );
 }
 
-function StorageScreen({ groupedRecords, onViewMedia, onDeleteRecord }) {
+function StorageScreen({ groupedRecords, bottomInset, onViewMedia, onDeleteRecord }) {
   const [activeStorageType, setActiveStorageType] = useState("image");
   const activeGroup = groupedRecords.find((group) => group.key === activeStorageType) || groupedRecords[0];
 
@@ -2085,7 +2642,13 @@ function StorageScreen({ groupedRecords, onViewMedia, onDeleteRecord }) {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.storageListContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.storageListContent,
+          { paddingBottom: BASE_SCROLL_BOTTOM_PADDING + bottomInset },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.storageSection}>
           <View style={styles.storageSectionHeader}>
             <View style={[styles.storageBadge, { backgroundColor: activeGroup.tint }]}>
@@ -2159,7 +2722,18 @@ function StorageScreen({ groupedRecords, onViewMedia, onDeleteRecord }) {
 }
 
 
-function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinFamily, onLogout, onOpenProfileEditor, onDeleteFamily }) {
+function MyPageScreen({
+  user,
+  familyRooms,
+  activeFamily,
+  bottomInset,
+  onCreateFamily,
+  onJoinFamily,
+  onLogout,
+  onDeleteAccount,
+  onOpenProfileEditor,
+  onDeleteFamily,
+}) {
   const [familyMenu, setFamilyMenu] = useState("create");
   const [familyName, setFamilyName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -2182,7 +2756,17 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
   return (
     <>
       <KeyboardAvoidingView style={styles.keyboardAvoidingContainer} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom: BASE_SCROLL_BOTTOM_PADDING + bottomInset,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.profileCard}>
           <View style={styles.profileTopRow}>
             {user?.picture ? (
@@ -2337,6 +2921,9 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
           <Pressable style={styles.myPageLogoutButton} onPress={onLogout}>
             <Text style={styles.myPageLogoutText}>{"\ub85c\uadf8\uc544\uc6c3"}</Text>
           </Pressable>
+          <Pressable style={styles.withdrawButton} onPress={onDeleteAccount}>
+            <Text style={styles.withdrawButtonText}>회원탈퇴</Text>
+          </Pressable>
           <Text style={styles.logoutHint}>{"\ub85c\uadf8\uc544\uc6c3\ud558\uba74 \ucc98\uc74c \ub85c\uadf8\uc778 \ud654\uba74\uc73c\ub85c \ub3cc\uc544\uac11\ub2c8\ub2e4."}</Text>
         </View>
       </ScrollView>
@@ -2382,9 +2969,9 @@ function MyPageScreen({ user, familyRooms, activeFamily, onCreateFamily, onJoinF
   );
 }
 
-function BottomTabs({ activeTab, onChange }) {
+function BottomTabs({ activeTab, bottomInset, onChange }) {
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { paddingBottom: BASE_TAB_BAR_BOTTOM_PADDING + bottomInset }]}>
       {tabItems.map((tab) => {
         const active = tab.key === activeTab;
         return (
@@ -2475,6 +3062,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 20,
     gap: 14,
+  },
+  authFieldStack: {
+    gap: 12,
   },
   loginCardTitle: {
     color: "#0F172A",
@@ -3349,6 +3939,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
+  withdrawButton: {
+    alignSelf: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  withdrawButtonText: {
+    color: "#94A3B8",
+    fontSize: 12,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   logoutHint: {
     color: "#64748B",
     fontSize: 12,
@@ -3872,6 +4473,3 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
-
-

@@ -2,12 +2,10 @@ from pydantic import BaseModel
 
 
 class FamilyCreateRequest(BaseModel):
-    owner_user_id: str
     name: str
 
 
 class FamilyJoinRequest(BaseModel):
-    user_id: str
     invite_code: str
 
 

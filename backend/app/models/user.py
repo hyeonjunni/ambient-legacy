@@ -9,6 +9,8 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     google_sub: Mapped[str] = mapped_column(String, unique=True, index=True)
+    username: Mapped[str | None] = mapped_column(String, unique=True, index=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     name: Mapped[str] = mapped_column(String)
     profile_image: Mapped[str | None] = mapped_column(String, nullable=True)

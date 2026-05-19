@@ -1,15 +1,20 @@
+import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
-from app.schemas.auth import GoogleAuthRequest, UserProfileUpdateRequest, UserResponse
+from app.schemas.auth import AuthSessionResponse, LoginRequest, SignUpRequest, UserProfileUpdateRequest, UserResponse
+from app.services.account_cleanup import delete_user_account_data
 
 
 router = APIRouter()
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{4,24}$")
 
 
 def build_profile_chunk(name: str, age: int | None, gender: str | None, phone: str | None, email: str) -> str:
@@ -26,6 +31,7 @@ def build_profile_chunk(name: str, age: int | None, gender: str | None, phone: s
 def serialize_user(user: User) -> UserResponse:
     return UserResponse(
         user_id=user.id,
+        username=user.username,
         email=user.email,
         name=user.name,
         profile_image=user.profile_image,
@@ -36,86 +42,106 @@ def serialize_user(user: User) -> UserResponse:
     )
 
 
-def upsert_google_user(
-    *,
-    db: Session,
-    google_sub: str,
-    email: str,
-    name: str,
-    profile_image: str | None = None,
-) -> User:
-    user = db.scalar(select(User).where(User.google_sub == google_sub))
-
-    if user is None:
-        user = User(
-            id=str(uuid.uuid4()),
-            google_sub=google_sub,
-            email=email,
-            name=name,
-            profile_image=profile_image,
-        )
-        db.add(user)
-    else:
-        user.google_sub = google_sub
-        user.email = email
-        user.name = name
-        user.profile_image = profile_image
-
-    user.profile_chunk = build_profile_chunk(user.name, user.age, user.gender, user.phone, user.email)
-    db.commit()
-    db.refresh(user)
-    return user
-
-
-@router.post("/google", response_model=UserResponse)
-def google_auth_sync(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
-    normalized_sub = (payload.google_sub or payload.email or payload.name or "google-user").strip()
-    fallback_email = payload.email or f"{normalized_sub}@ambientlegacy.app"
-    fallback_name = payload.name or payload.email or "Google User"
-    user = upsert_google_user(
-        db=db,
-        google_sub=normalized_sub,
-        email=str(fallback_email),
-        name=str(fallback_name),
-        profile_image=payload.profile_image,
+def build_session_response(user: User) -> AuthSessionResponse:
+    return AuthSessionResponse(
+        access_token=create_access_token(user.id),
+        user=serialize_user(user),
     )
-    return serialize_user(user)
 
 
-@router.post("/demo", response_model=UserResponse)
-def demo_auth_sync(db: Session = Depends(get_db)):
-    user = upsert_google_user(
-        db=db,
-        google_sub="demo-user",
-        email="demo@ambientlegacy.app",
-        name="데모 사용자",
+def validate_username(username: str) -> str:
+    normalized = username.strip()
+    if not USERNAME_PATTERN.fullmatch(normalized):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username must be 4-24 characters and use only letters, numbers, dots, hyphens, or underscores",
+        )
+    return normalized
+
+
+@router.post("/signup", response_model=AuthSessionResponse)
+def signup(payload: SignUpRequest, db: Session = Depends(get_db)):
+    username = validate_username(payload.username)
+    email = str(payload.email).strip().lower()
+
+    existing_user = db.scalar(
+        select(User).where(
+            or_(
+                User.username == username,
+                User.email == email,
+                User.google_sub == f"local:{username}",
+            )
+        )
+    )
+    if existing_user is not None:
+        duplicate_field = "username" if existing_user.username == username or existing_user.google_sub == f"local:{username}" else "email"
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Duplicate {duplicate_field}")
+
+    user = User(
+        id=str(uuid.uuid4()),
+        google_sub=f"local:{username}",
+        username=username,
+        password_hash=hash_password(payload.password),
+        email=email,
+        name=payload.name.strip(),
         profile_image=None,
     )
-    return serialize_user(user)
-
-
-@router.get("/profile/{user_id}", response_model=UserResponse)
-def get_user_profile(user_id: str, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return serialize_user(user)
-
-
-@router.put("/profile/{user_id}", response_model=UserResponse)
-def update_user_profile(user_id: str, payload: UserProfileUpdateRequest, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user.name = payload.name
-    user.age = payload.age
-    user.gender = payload.gender
-    user.phone = payload.phone
-    user.email = str(payload.email)
     user.profile_chunk = build_profile_chunk(user.name, user.age, user.gender, user.phone, user.email)
 
+    db.add(user)
     db.commit()
     db.refresh(user)
-    return serialize_user(user)
+    return build_session_response(user)
+
+
+@router.post("/login", response_model=AuthSessionResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    username = payload.username.strip()
+    user = db.scalar(select(User).where(User.username == username))
+    if user is None or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+    return build_session_response(user)
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return serialize_user(current_user)
+
+
+@router.put("/profile", response_model=UserResponse)
+def update_my_profile(
+    payload: UserProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.name = payload.name
+    current_user.age = payload.age
+    current_user.gender = payload.gender
+    current_user.phone = payload.phone
+    current_user.email = str(payload.email).strip().lower()
+    current_user.profile_chunk = build_profile_chunk(
+        current_user.name,
+        current_user.age,
+        current_user.gender,
+        current_user.phone,
+        current_user.email,
+    )
+
+    db.commit()
+    db.refresh(current_user)
+    return serialize_user(current_user)
+
+
+@router.delete("/me")
+def delete_my_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cleanup_failed_count = delete_user_account_data(db, current_user)
+    db.commit()
+    return {
+        "deleted": True,
+        "user_id": current_user.id,
+        "media_cleanup_failed_count": cleanup_failed_count,
+    }

@@ -6,10 +6,11 @@ from sqlalchemy import inspect, text
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.database import Base, close_connector, engine
+from app.core.database import Base, SessionLocal, close_connector, engine
 from app.models.family import FamilyMember, FamilyRoom
 from app.models.upload import Upload, UploadFile
 from app.models.user import User
+from app.services.account_cleanup import purge_legacy_google_users
 
 
 app = FastAPI(
@@ -39,10 +40,34 @@ def ensure_user_profile_columns():
                 connection.execute(text(statement))
 
 
+def ensure_user_auth_columns():
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        existing_columns = {column["name"] for column in inspector.get_columns("users")}
+        column_statements = {
+            "username": "ALTER TABLE users ADD COLUMN username VARCHAR",
+            "password_hash": "ALTER TABLE users ADD COLUMN password_hash VARCHAR",
+        }
+
+        for column_name, statement in column_statements.items():
+            if column_name not in existing_columns:
+                connection.execute(text(statement))
+
+        connection.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)")
+        )
+
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
     ensure_user_profile_columns()
+    ensure_user_auth_columns()
+    db = SessionLocal()
+    try:
+        purge_legacy_google_users(db)
+    finally:
+        db.close()
 
 
 @app.on_event("shutdown")

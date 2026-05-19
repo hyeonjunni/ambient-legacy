@@ -1,16 +1,17 @@
 import io
 import json
 import logging
+import urllib.parse
 import uuid
 from base64 import b64decode
 from pathlib import Path
-from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile as FastAPIUploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile as FastAPIUploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.family import FamilyMember, FamilyRoom
@@ -21,7 +22,7 @@ from app.schemas.upload import UploadCreateRequest, UploadFileRequest, UploadRes
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-LOCAL_MEDIA_ROOT = Path(__file__).resolve().parents[2] / 'storage' / 'uploads'
+LOCAL_MEDIA_ROOT = Path(__file__).resolve().parents[2] / "storage" / "uploads"
 LOCAL_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 TAG_PREFIX = "[[tags:"
 TAG_SUFFIX = "]]"
@@ -30,19 +31,18 @@ ONE_PIXEL_PNG = b64decode(
 )
 
 
-def build_file_url(request: Request | None, upload: Upload, viewer_user_id: str | None) -> str | None:
-    if request is None or not viewer_user_id:
+def build_file_url(request: Request | None, upload: Upload) -> str | None:
+    if request is None:
         return None
-    query = urlencode({'user_id': viewer_user_id})
-    return f"{str(request.base_url).rstrip('/')}/api/v1/uploads/{upload.id}/content?{query}"
+    return f"{str(request.base_url).rstrip('/')}/api/v1/uploads/{upload.id}/content"
 
 
 def resolve_gcp_project_id() -> str | None:
     if settings.gcp_project_id:
         return settings.gcp_project_id
 
-    if settings.instance_connection_name and ':' in settings.instance_connection_name:
-        return settings.instance_connection_name.split(':', 1)[0]
+    if settings.instance_connection_name and ":" in settings.instance_connection_name:
+        return settings.instance_connection_name.split(":", 1)[0]
 
     return None
 
@@ -95,6 +95,12 @@ def unpack_description_and_tags(raw_description: str | None) -> tuple[str | None
     return remainder or None, tags
 
 
+def build_content_disposition(filename: str) -> str:
+    encoded_filename = urllib.parse.quote(filename)
+    safe_ascii_filename = "".join(char if ord(char) < 128 else "_" for char in filename) or "download"
+    return f"inline; filename=\"{safe_ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
+
+
 def get_gcs_client():
     if not settings.use_gcs_media_storage or not settings.gcs_bucket_name:
         return None
@@ -138,16 +144,6 @@ def upload_bytes_to_gcs(
     return settings.gcs_bucket_name, blob_name
 
 
-def gcs_blob_exists(bucket_name: str, storage_path: str) -> bool:
-    client = get_gcs_client()
-    if client is None:
-        return False
-
-    bucket = client.bucket(bucket_name)
-    blob = bucket.blob(storage_path)
-    return blob.exists()
-
-
 def delete_gcs_blob(bucket_name: str, storage_path: str) -> bool:
     client = get_gcs_client()
     if client is None:
@@ -160,8 +156,19 @@ def delete_gcs_blob(bucket_name: str, storage_path: str) -> bool:
     blob.delete()
     return True
 
+
+def gcs_blob_exists(bucket_name: str, storage_path: str) -> bool:
+    client = get_gcs_client()
+    if client is None:
+        return False
+
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(storage_path)
+    return bool(blob.exists())
+
+
 def delete_stored_media(upload_file: UploadFile) -> bool:
-    if upload_file.storage_bucket == 'local-media':
+    if upload_file.storage_bucket == "local-media":
         local_path = LOCAL_MEDIA_ROOT / upload_file.storage_path
         if not local_path.exists():
             return False
@@ -169,10 +176,12 @@ def delete_stored_media(upload_file: UploadFile) -> bool:
         return True
 
     return delete_gcs_blob(upload_file.storage_bucket, upload_file.storage_path)
+
+
 def store_media_file_locally(file_bytes: bytes, stored_filename: str) -> tuple[str, str]:
     stored_path = LOCAL_MEDIA_ROOT / stored_filename
     stored_path.write_bytes(file_bytes)
-    return 'local-media', stored_filename
+    return "local-media", stored_filename
 
 
 def store_media_file(
@@ -193,29 +202,24 @@ def store_media_file(
             metadata=metadata,
         )
     except Exception as error:
-        logger.warning('GCS upload failed for %s: %s. Falling back to local storage.', stored_filename, error)
+        logger.warning("GCS upload failed for %s: %s. Falling back to local storage.", stored_filename, error)
         return store_media_file_locally(file_bytes, stored_filename)
 
 
 def load_gcs_file(bucket_name: str, storage_path: str) -> bytes:
     client = get_gcs_client()
     if client is None:
-        raise HTTPException(status_code=500, detail='Google Cloud Storage client is not available')
+        raise HTTPException(status_code=500, detail="Google Cloud Storage client is not available")
 
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(storage_path)
     if not blob.exists():
-        raise HTTPException(status_code=404, detail='Stored file not found in Google Cloud Storage')
+        raise HTTPException(status_code=404, detail="Stored file not found in Google Cloud Storage")
 
     return blob.download_as_bytes()
 
 
-def serialize_upload(
-    upload: Upload,
-    request: Request | None = None,
-    upload_file: UploadFile | None = None,
-    viewer_user_id: str | None = None,
-) -> UploadResponse:
+def serialize_upload(upload: Upload, request: Request | None = None, upload_file: UploadFile | None = None) -> UploadResponse:
     clean_description, tags = unpack_description_and_tags(upload.description)
     return UploadResponse(
         upload_id=upload.id,
@@ -228,7 +232,7 @@ def serialize_upload(
         status=upload.status,
         created_at=upload.created_at.isoformat() if upload.created_at else None,
         has_file=upload_file is not None,
-        file_url=build_file_url(request, upload, viewer_user_id) if upload_file else None,
+        file_url=build_file_url(request, upload) if upload_file else None,
         mime_type=upload_file.mime_type if upload_file else None,
         file_size=upload_file.file_size if upload_file else None,
     )
@@ -242,7 +246,7 @@ def ensure_room_member(db: Session, room_id: str, user_id: str) -> FamilyMember:
         )
     )
     if membership is None:
-        raise HTTPException(status_code=403, detail='User is not a member of this family room')
+        raise HTTPException(status_code=403, detail="User is not a member of this family room")
     return membership
 
 
@@ -254,26 +258,22 @@ def get_latest_upload_file(db: Session, upload_id: str) -> UploadFile | None:
     )
 
 
-@router.post('', response_model=UploadResponse)
-def create_upload(payload: UploadCreateRequest, db: Session = Depends(get_db)):
-    user = db.get(User, payload.uploader_user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail='Uploader user not found')
-
+@router.post("", response_model=UploadResponse)
+def create_upload(payload: UploadCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.get(FamilyRoom, payload.room_id)
     if room is None:
-        raise HTTPException(status_code=404, detail='Family room not found')
+        raise HTTPException(status_code=404, detail="Family room not found")
 
-    ensure_room_member(db, payload.room_id, payload.uploader_user_id)
+    ensure_room_member(db, payload.room_id, current_user.id)
 
     upload = Upload(
         id=str(uuid.uuid4()),
         room_id=payload.room_id,
-        uploader_user_id=payload.uploader_user_id,
+        uploader_user_id=current_user.id,
         type=payload.type,
         title=payload.title,
         description=pack_description_with_tags(payload.description, payload.tags),
-        status='uploaded',
+        status="uploaded",
     )
     db.add(upload)
     db.commit()
@@ -282,11 +282,18 @@ def create_upload(payload: UploadCreateRequest, db: Session = Depends(get_db)):
     return serialize_upload(upload)
 
 
-@router.post('/{upload_id}/file', response_model=dict)
-def attach_upload_file(upload_id: str, payload: UploadFileRequest, db: Session = Depends(get_db)):
+@router.post("/{upload_id}/file", response_model=dict)
+def attach_upload_file(
+    upload_id: str,
+    payload: UploadFileRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     upload = db.get(Upload, upload_id)
     if upload is None:
-        raise HTTPException(status_code=404, detail='Upload not found')
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    ensure_room_member(db, upload.room_id, current_user.id)
 
     upload_file = UploadFile(
         id=str(uuid.uuid4()),
@@ -301,34 +308,34 @@ def attach_upload_file(upload_id: str, payload: UploadFileRequest, db: Session =
     db.commit()
 
     return {
-        'upload_id': upload_id,
-        'storage_path': payload.storage_path,
-        'encrypted': payload.encrypted,
+        "upload_id": upload_id,
+        "storage_path": payload.storage_path,
+        "encrypted": payload.encrypted,
     }
 
 
-@router.post('/{upload_id}/binary', response_model=UploadResponse)
+@router.post("/{upload_id}/binary", response_model=UploadResponse)
 async def upload_binary_file(
     upload_id: str,
     request: Request,
-    user_id: str = Query(...),
     file: FastAPIUploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     upload = db.get(Upload, upload_id)
     if upload is None:
-        raise HTTPException(status_code=404, detail='Upload not found')
+        raise HTTPException(status_code=404, detail="Upload not found")
 
-    ensure_room_member(db, upload.room_id, user_id)
+    ensure_room_member(db, upload.room_id, current_user.id)
 
-    suffix = Path(file.filename or '').suffix or '.bin'
+    suffix = Path(file.filename or "").suffix or ".bin"
     stored_filename = f"{upload_id}{suffix}"
     file_bytes = await file.read()
     _, upload_tags = unpack_description_and_tags(upload.description)
     storage_bucket, storage_path = store_media_file(
         file_bytes,
         stored_filename,
-        file.content_type or 'application/octet-stream',
+        file.content_type or "application/octet-stream",
         metadata={
             "upload_type": upload.type,
             "upload_tags": json.dumps(upload_tags, ensure_ascii=False),
@@ -342,7 +349,7 @@ async def upload_binary_file(
         upload_id=upload_id,
         storage_bucket=storage_bucket,
         storage_path=storage_path,
-        mime_type=file.content_type or 'application/octet-stream',
+        mime_type=file.content_type or "application/octet-stream",
         file_size=len(file_bytes),
         encrypted=False,
     )
@@ -350,16 +357,16 @@ async def upload_binary_file(
     db.commit()
     db.refresh(upload)
 
-    return serialize_upload(upload, request=request, upload_file=upload_file, viewer_user_id=user_id)
+    return serialize_upload(upload, request=request, upload_file=upload_file)
 
 
-@router.get('/{room_id}', response_model=list[UploadResponse])
-def list_uploads(room_id: str, request: Request, user_id: str = Query(...), db: Session = Depends(get_db)):
+@router.get("/{room_id}", response_model=list[UploadResponse])
+def list_uploads(room_id: str, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     room = db.get(FamilyRoom, room_id)
     if room is None:
-        raise HTTPException(status_code=404, detail='Family room not found')
+        raise HTTPException(status_code=404, detail="Family room not found")
 
-    ensure_room_member(db, room_id, user_id)
+    ensure_room_member(db, room_id, current_user.id)
 
     uploads = db.scalars(
         select(Upload)
@@ -367,61 +374,59 @@ def list_uploads(room_id: str, request: Request, user_id: str = Query(...), db: 
         .order_by(Upload.created_at.desc(), Upload.id.desc())
     ).all()
 
-    serialized_uploads: list[UploadResponse] = []
-    for upload in uploads:
-        upload_file = get_latest_upload_file(db, upload.id)
-        serialized_uploads.append(
-            serialize_upload(upload, request=request, upload_file=upload_file, viewer_user_id=user_id)
-        )
-
-    return serialized_uploads
+    return [
+        serialize_upload(upload, request=request, upload_file=get_latest_upload_file(db, upload.id))
+        for upload in uploads
+    ]
 
 
-@router.get('/{upload_id}/content')
-def get_upload_content(upload_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+@router.get("/{upload_id}/content")
+def get_upload_content(upload_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     upload = db.get(Upload, upload_id)
     if upload is None:
-        raise HTTPException(status_code=404, detail='Upload not found')
+        raise HTTPException(status_code=404, detail="Upload not found")
 
-    ensure_room_member(db, upload.room_id, user_id)
+    ensure_room_member(db, upload.room_id, current_user.id)
 
     upload_file = get_latest_upload_file(db, upload_id)
     if upload_file is None:
-        raise HTTPException(status_code=404, detail='Upload file not found')
+        raise HTTPException(status_code=404, detail="Upload file not found")
 
-    if upload_file.storage_bucket == 'local-media':
+    content_disposition = build_content_disposition(upload.title)
+    if upload_file.storage_bucket == "local-media":
         local_path = LOCAL_MEDIA_ROOT / upload_file.storage_path
         if not local_path.exists():
-            raise HTTPException(status_code=404, detail='Stored local file not found')
+            raise HTTPException(status_code=404, detail="Stored local file not found")
         return FileResponse(
             path=str(local_path),
-            media_type=upload_file.mime_type or 'application/octet-stream',
+            media_type=upload_file.mime_type or "application/octet-stream",
             filename=upload.title,
+            headers={"Content-Disposition": content_disposition},
         )
 
     file_bytes = load_gcs_file(upload_file.storage_bucket, upload_file.storage_path)
-    headers = {'Content-Disposition': f'inline; filename="{upload.title}"'}
+    headers = {"Content-Disposition": content_disposition}
     return StreamingResponse(
         io.BytesIO(file_bytes),
-        media_type=upload_file.mime_type or 'application/octet-stream',
+        media_type=upload_file.mime_type or "application/octet-stream",
         headers=headers,
     )
 
 
-@router.delete('/{upload_id}')
-def delete_upload(upload_id: str, user_id: str = Query(...), db: Session = Depends(get_db)):
+@router.delete("/{upload_id}")
+def delete_upload(upload_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     upload = db.get(Upload, upload_id)
     if upload is None:
-        raise HTTPException(status_code=404, detail='Upload not found')
+        raise HTTPException(status_code=404, detail="Upload not found")
 
     room = db.get(FamilyRoom, upload.room_id)
     if room is None:
-        raise HTTPException(status_code=404, detail='Family room not found')
+        raise HTTPException(status_code=404, detail="Family room not found")
 
-    ensure_room_member(db, upload.room_id, user_id)
+    ensure_room_member(db, upload.room_id, current_user.id)
 
-    if upload.uploader_user_id != user_id and room.owner_user_id != user_id:
-        raise HTTPException(status_code=403, detail='Only the uploader or family room owner can delete this upload')
+    if upload.uploader_user_id != current_user.id and room.owner_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the uploader or family room owner can delete this upload")
 
     upload_files = db.scalars(
         select(UploadFile)
@@ -436,7 +441,7 @@ def delete_upload(upload_id: str, user_id: str = Query(...), db: Session = Depen
         except Exception as error:
             cleanup_failed.append(upload_file.storage_path)
             logger.warning(
-                'Failed to delete upload media %s (%s/%s): %s',
+                "Failed to delete upload media %s (%s/%s): %s",
                 upload_id,
                 upload_file.storage_bucket,
                 upload_file.storage_path,
@@ -448,7 +453,7 @@ def delete_upload(upload_id: str, user_id: str = Query(...), db: Session = Depen
     db.commit()
 
     return {
-        'deleted': True,
-        'upload_id': upload_id,
-        'media_cleanup_failed_count': len(cleanup_failed),
+        "deleted": True,
+        "upload_id": upload_id,
+        "media_cleanup_failed_count": len(cleanup_failed),
     }

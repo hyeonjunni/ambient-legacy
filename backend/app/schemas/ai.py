@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict
 class AIDemoChatRequest(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
     room_id: str
-    user_id: str
     model_id: str
     persona_id: str
     query: str
@@ -38,10 +37,6 @@ class AIPersonaOption(BaseModel):
     id: str
     label: str
     tone: str
-
-
-class AIDemoBootstrapRequest(BaseModel):
-    user_id: str
 
 
 class AIDemoBootstrapResponse(BaseModel):

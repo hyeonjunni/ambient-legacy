@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     ollama_gemma_e2b_model_name: str = "gemma4:e2b"
     ollama_gemma_e4b_model_name: str = "gemma4:e4b"
     ai_provider_timeout_seconds: int = 30
+    jwt_secret_key: str = "ambient-legacy-dev-secret"
+    jwt_access_token_expires_minutes: int = 60 * 24 * 7
 
     model_config = SettingsConfigDict(
         env_file=".env",

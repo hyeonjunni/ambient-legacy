@@ -1,26 +1,25 @@
 from pathlib import Path
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.demo_service import build_demo_chat_response, list_persona_options
 from app.ai.model_registry import MODEL_REGISTRY
-from app.core.config import settings
-from app.core.database import get_db
-from app.models.family import FamilyMember, FamilyRoom
-from app.models.upload import Upload, UploadFile
-from app.models.user import User
+from app.api.deps import get_current_user
 from app.api.routes.uploads import (
     ONE_PIXEL_PNG,
     get_latest_upload_file,
     pack_description_with_tags,
     store_media_file,
-    unpack_description_and_tags,
 )
+from app.core.config import settings
+from app.core.database import get_db
+from app.models.family import FamilyMember, FamilyRoom
+from app.models.upload import Upload, UploadFile
+from app.models.user import User
 from app.schemas.ai import (
-    AIDemoBootstrapRequest,
     AIDemoBootstrapResponse,
     AIDemoChatRequest,
     AIDemoChatResponse,
@@ -36,13 +35,13 @@ DEMO_UPLOADS = [
     {
         "type": "text",
         "title": "아버지 인터뷰 메모",
-        "description": "준비를 꼼꼼히 하고 사람과의 약속을 지키는 태도가 중요하다고 말했다.",
+        "description": "준비를 길게 하기보다, 작은 시도라도 계속 이어가는 태도가 중요하다고 남긴 기록입니다.",
         "tags": ["인터뷰", "아버지", "조언", "가족기록"],
     },
     {
         "type": "image",
         "title": "2024 가족 송년회 사진",
-        "description": "현수막 OCR: 2024 가족 송년회 / 가족이 함께 모여 건배하는 장면",
+        "description": "OCR 예시: 2024 가족 송년회 / 가족이 함께 모여 건배하는 장면",
         "tags": ["송년회", "사진", "OCR", "가족행사"],
         "binary_filename": "demo-year-end-photo.png",
         "binary_mime_type": "image/png",
@@ -50,14 +49,14 @@ DEMO_UPLOADS = [
     },
     {
         "type": "video",
-        "title": "송년회 건배사 영상",
-        "description": "영상 OCR/STT: 건강하게 오래 봅시다 / 연말 가족 모임 건배사",
+        "title": "송년회 건배 영상",
+        "description": "영상 OCR/STT 예시: 건강하게 오래 함께 지내자 / 다음 가족 모임 건배사",
         "tags": ["송년회", "영상", "OCR", "STT", "건배사"],
     },
     {
         "type": "text",
         "title": "부산 여행 회상 메모",
-        "description": "광안리 바다 앞에서 가족사진을 찍고 바람이 시원하다고 말했다.",
+        "description": "광안리 바다 앞에서 가족사진을 찍고 바람이 시원했다고 남긴 기록입니다.",
         "tags": ["부산", "여행", "회상", "가족사진"],
     },
 ]
@@ -102,14 +101,13 @@ def get_runtime_status():
 
 
 @router.post("/demo-bootstrap", response_model=AIDemoBootstrapResponse)
-def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db)):
-    user = db.get(User, payload.user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
+def bootstrap_demo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     room = db.scalar(
         select(FamilyRoom).where(
-            FamilyRoom.owner_user_id == payload.user_id,
+            FamilyRoom.owner_user_id == current_user.id,
             FamilyRoom.name == DEMO_ROOM_NAME,
         )
     )
@@ -119,7 +117,7 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
             id=str(uuid.uuid4()),
             name=DEMO_ROOM_NAME,
             invite_code=f"DEMO{str(uuid.uuid4())[:2].upper()}",
-            owner_user_id=payload.user_id,
+            owner_user_id=current_user.id,
         )
         db.add(room)
         db.flush()
@@ -127,7 +125,7 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
             FamilyMember(
                 id=str(uuid.uuid4()),
                 room_id=room.id,
-                user_id=payload.user_id,
+                user_id=current_user.id,
                 role="owner",
             )
         )
@@ -145,7 +143,7 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
             upload = Upload(
                 id=str(uuid.uuid4()),
                 room_id=room.id,
-                uploader_user_id=payload.user_id,
+                uploader_user_id=current_user.id,
                 type=item["type"],
                 title=item["title"],
                 description=pack_description_with_tags(item["description"], item.get("tags")),
@@ -154,13 +152,6 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
             db.add(upload)
             db.flush()
             seeded_count += 1
-        else:
-            existing_description, existing_tags = unpack_description_and_tags(upload.description)
-            if not existing_tags:
-                upload.description = pack_description_with_tags(
-                    existing_description or item["description"],
-                    item.get("tags"),
-                )
 
         if item.get("binary_bytes") and get_latest_upload_file(db, upload.id) is None:
             suffix = Path(item["binary_filename"]).suffix or ".bin"
@@ -173,7 +164,7 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
                     "upload_type": item["type"],
                     "upload_tags": ",".join(item.get("tags", [])),
                     "room_id": room.id,
-                    "uploader_user_id": payload.user_id,
+                    "uploader_user_id": current_user.id,
                     "demo_seed": "true",
                 },
             )
@@ -201,11 +192,15 @@ def bootstrap_demo(payload: AIDemoBootstrapRequest, db: Session = Depends(get_db
 
 
 @router.post("/chat-demo", response_model=AIDemoChatResponse)
-def chat_demo(payload: AIDemoChatRequest, db: Session = Depends(get_db)):
+def chat_demo(
+    payload: AIDemoChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = build_demo_chat_response(
         db=db,
         room_id=payload.room_id,
-        user_id=payload.user_id,
+        user_id=current_user.id,
         model_id=payload.model_id,
         persona_id=payload.persona_id,
         query=payload.query,

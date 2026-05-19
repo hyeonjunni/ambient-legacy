@@ -3,7 +3,6 @@
 
 class UploadCreateRequest(BaseModel):
     room_id: str
-    uploader_user_id: str
     type: str
     title: str
     description: str | None = None
