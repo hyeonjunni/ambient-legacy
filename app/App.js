@@ -909,6 +909,37 @@ export default function App() {
     };
   }, [user?.id, activeFamilyId, storageLoaded]);
 
+  useEffect(() => {
+    if (!storageLoaded || !user?.id || !activeFamilyId) {
+      return;
+    }
+
+    if (activeTab !== "home" && activeTab !== "storage") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncUploads = async () => {
+      try {
+        const uploads = await fetchUploads(activeFamilyId);
+        if (cancelled) {
+          return;
+        }
+        setRecords(uploads.map(mapUploadToRecord));
+      } catch (_error) {
+      }
+    };
+
+    syncUploads();
+    const intervalId = setInterval(syncUploads, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [activeTab, user?.id, activeFamilyId, storageLoaded]);
+
   function upsertFamilyRoom(nextRoom) {
     setFamilyRooms((prev) => [nextRoom, ...prev.filter((room) => room.id !== nextRoom.id)]);
   }

@@ -10,8 +10,7 @@
     ],
     "plugins": [
       "expo-video",
-      "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
