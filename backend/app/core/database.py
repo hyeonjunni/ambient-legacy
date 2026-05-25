@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from app.core.config import settings
 
 connector: Connector | None = None
+logger = logging.getLogger(__name__)
 
 
 def _apply_google_credentials_env() -> None:
@@ -23,7 +25,22 @@ def _build_engine():
     global connector
     _apply_google_credentials_env()
 
-    if settings.use_cloud_sql_connector:
+    use_cloud_sql_connector = settings.use_cloud_sql_connector
+    if (
+        not use_cloud_sql_connector
+        and settings.instance_connection_name
+        and settings.db_user
+        and settings.db_name
+        and ("localhost" in settings.database_url or "127.0.0.1" in settings.database_url)
+    ):
+        use_cloud_sql_connector = True
+
+    logger.info(
+        "Database engine mode resolved: %s",
+        "cloud-sql-connector" if use_cloud_sql_connector else "direct-database-url",
+    )
+
+    if use_cloud_sql_connector:
         connector = Connector(refresh_strategy="LAZY")
         ip_type = IPTypes.PRIVATE if settings.private_ip else IPTypes.PUBLIC
 

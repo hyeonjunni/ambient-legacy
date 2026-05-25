@@ -22,5 +22,6 @@ class FamilyMember(Base):
     room_id: Mapped[str] = mapped_column(ForeignKey("family_rooms.id"))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     role: Mapped[str] = mapped_column(String, default="member")
+    related_to_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    relation_to_related_user: Mapped[str | None] = mapped_column(String, nullable=True)
     joined_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-

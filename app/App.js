@@ -138,7 +138,7 @@ const STORAGE_KEYS = {
   selectedPersonaId: "ambient.selectedPersonaId",
 };
 
-const DEFAULT_API_BASE_URL = "http://172.30.1.42:8000/api/v1";
+const DEFAULT_API_BASE_URL = "https://ambient-legacy-backend-279745599452.asia-northeast3.run.app/api/v1";
 let runtimeApiBaseUrl = DEFAULT_API_BASE_URL;
 let runtimeAccessToken = "";
 const KEYBOARD_AVOIDING_BEHAVIOR = Platform.OS === "ios" ? "padding" : "height";
@@ -386,6 +386,10 @@ async function fetchFamilyMembers(roomId) {
   return apiRequest(`/families/${roomId}/members`);
 }
 
+async function fetchFamilyJoinPreview(inviteCode) {
+  return apiRequest(`/families/invite/${encodeURIComponent(inviteCode)}`);
+}
+
 async function fetchUserFamilies() {
   return apiRequest("/families");
 }
@@ -533,6 +537,19 @@ function mapFamilyRoom(room, members, currentUserId) {
     members: Array.isArray(members) ? members : [],
     createdAt: new Date().toLocaleDateString("ko-KR"),
   };
+}
+
+function getFamilyRelationLabel(member) {
+  if (!member?.related_to_user_name || !member?.relation_to_related_user) {
+    return null;
+  }
+
+  const relationLabel =
+    member.relation_to_related_user === "parent"
+      ? `${member.related_to_user_name}의 부모`
+      : `${member.related_to_user_name}의 자녀`;
+
+  return relationLabel;
 }
 
 function buildProfileDraft(user) {
@@ -1425,7 +1442,26 @@ export default function App() {
     }
   }
 
-  async function handleJoinFamily(inviteCode) {
+  async function prepareJoinFamily(inviteCode) {
+    const cleanCode = inviteCode.trim().toUpperCase();
+    if (!cleanCode) {
+      showPopupResult("코드 입력 필요", "입장할 가족방 코드를 입력해주세요.", {
+        variant: "error",
+      });
+      return null;
+    }
+
+    try {
+      return await fetchFamilyJoinPreview(cleanCode);
+    } catch (error) {
+      showPopupResult("가족방 정보 확인 실패", getReadableErrorMessage(error, "가족방 정보를 불러오지 못했습니다."), {
+        variant: "error",
+      });
+      return null;
+    }
+  }
+
+  async function handleJoinFamily(inviteCode, relationSelection = null) {
     const cleanCode = inviteCode.trim().toUpperCase();
     if (!cleanCode) {
       showPopupResult("코드 입력 필요", "입장할 가족방 코드를 입력해주세요.", {
@@ -1439,6 +1475,8 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({
           invite_code: cleanCode,
+          related_to_user_id: relationSelection?.relatedToUserId || null,
+          relation_to_related_user: relationSelection?.relationToRelatedUser || null,
         }),
       });
       const members = await fetchFamilyMembers(joinedRoom.room_id);
@@ -1860,6 +1898,7 @@ export default function App() {
               activeFamily={activeFamily}
               bottomInset={bottomInset}
               onCreateFamily={handleCreateFamily}
+              onPrepareJoinFamily={prepareJoinFamily}
               onJoinFamily={handleJoinFamily}
               onLogout={handleLogout}
               onDeleteAccount={handleDeleteAccount}
@@ -2759,6 +2798,7 @@ function MyPageScreen({
   activeFamily,
   bottomInset,
   onCreateFamily,
+  onPrepareJoinFamily,
   onJoinFamily,
   onLogout,
   onDeleteAccount,
@@ -2769,6 +2809,9 @@ function MyPageScreen({
   const [familyName, setFamilyName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
+  const [joinPreview, setJoinPreview] = useState(null);
+  const [joinRelationTargetUserId, setJoinRelationTargetUserId] = useState("");
+  const [joinRelationType, setJoinRelationType] = useState("child");
 
   async function submitCreate() {
     const success = await onCreateFamily(familyName);
@@ -2778,10 +2821,50 @@ function MyPageScreen({
   }
 
   async function submitJoin() {
-    const success = await onJoinFamily(inviteCode);
+    const preview = await onPrepareJoinFamily(inviteCode);
+    if (!preview) {
+      return;
+    }
+
+    const previewMembers = Array.isArray(preview.members) ? preview.members : [];
+    if (previewMembers.length === 0) {
+      const success = await onJoinFamily(inviteCode);
+      if (success) {
+        setInviteCode("");
+      }
+      return;
+    }
+
+    setJoinPreview(preview);
+    setJoinRelationTargetUserId(previewMembers[0]?.user_id || "");
+    setJoinRelationType("child");
+  }
+
+  async function submitJoinWithRelation() {
+    if (!joinPreview) {
+      return;
+    }
+
+    if (!joinRelationTargetUserId) {
+      return;
+    }
+
+    const success = await onJoinFamily(inviteCode, {
+      relatedToUserId: joinRelationTargetUserId,
+      relationToRelatedUser: joinRelationType,
+    });
     if (success) {
       setInviteCode("");
+      setJoinPreview(null);
+      setJoinRelationTargetUserId("");
+      setJoinRelationType("child");
     }
+  }
+
+  function closeJoinPreview() {
+    setJoinPreview(null);
+    setJoinRelationTargetUserId("");
+    setJoinRelationType("child");
   }
 
   return (
@@ -2853,7 +2936,12 @@ function MyPageScreen({
                       </View>
                       <View style={styles.familyMemberInfo}>
                         <Text style={styles.familyMemberName}>{memberLabel}</Text>
-                        <Text style={styles.familyMemberMeta}>{getRoleLabel(member.role)}{" \u00b7 "}{memberMeta}</Text>
+                        <Text style={styles.familyMemberMeta}>
+                          {getRoleLabel(member.role)}
+                          {getFamilyRelationLabel(member) ? ` · ${getFamilyRelationLabel(member)}` : ""}
+                          {" \u00b7 "}
+                          {memberMeta}
+                        </Text>
                       </View>
                       <Text style={styles.familyMemberLink}>{"\uc0c1\uc138\ubcf4\uae30"}</Text>
                     </Pressable>
@@ -2993,6 +3081,104 @@ function MyPageScreen({
             <Pressable style={[styles.modalButton, styles.submitButton]} onPress={() => setSelectedMember(null)}>
               <Text style={styles.submitButtonText}>{"\ub4a4\ub85c\uac00\uae30"}</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal transparent visible={Boolean(joinPreview)} onRequestClose={closeJoinPreview}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.joinFamilyRelationSheet}>
+            <View style={styles.uploadResultIcon}>
+              <Text style={styles.uploadResultIconText}>◎</Text>
+            </View>
+            <Text style={styles.uploadLoadingTitle}>가족 관계 선택</Text>
+            <Text style={styles.uploadLoadingDescription}>
+              {joinPreview ? `${joinPreview.name}에 입장하기 전에 이미 들어와 있는 가족을 기준으로 관계를 선택해주세요.` : ""}
+            </Text>
+            <Text style={styles.uploadLoadingHint}>이 정보는 이후 가족 트리와 호칭 구조를 만드는 기준으로 사용됩니다.</Text>
+
+            <View style={styles.joinRelationSection}>
+              <Text style={styles.inputLabel}>기준 가족 구성원</Text>
+              <View style={styles.joinRelationOptionList}>
+                {joinPreview?.members?.map((member) => {
+                  const isActive = joinRelationTargetUserId === member.user_id;
+                  return (
+                    <Pressable
+                      key={member.user_id}
+                      style={[styles.joinRelationMemberOption, isActive && styles.joinRelationMemberOptionActive]}
+                      onPress={() => setJoinRelationTargetUserId(member.user_id)}
+                    >
+                      <Text
+                        style={[
+                          styles.joinRelationMemberOptionText,
+                          isActive && styles.joinRelationMemberOptionTextActive,
+                        ]}
+                      >
+                        {member.name || member.email || member.user_id}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.joinRelationMemberOptionMeta,
+                          isActive && styles.joinRelationMemberOptionTextActive,
+                        ]}
+                      >
+                        {getRoleLabel(member.role)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.joinRelationSection}>
+              <Text style={styles.inputLabel}>관계 선택</Text>
+              <View style={styles.joinRelationToggleRow}>
+                <Pressable
+                  style={[
+                    styles.joinRelationToggle,
+                    joinRelationType === "child" && styles.joinRelationToggleActive,
+                  ]}
+                  onPress={() => setJoinRelationType("child")}
+                >
+                  <Text
+                    style={[
+                      styles.joinRelationToggleText,
+                      joinRelationType === "child" && styles.joinRelationToggleTextActive,
+                    ]}
+                  >
+                    이 사람의 자녀
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.joinRelationToggle,
+                    joinRelationType === "parent" && styles.joinRelationToggleActive,
+                  ]}
+                  onPress={() => setJoinRelationType("parent")}
+                >
+                  <Text
+                    style={[
+                      styles.joinRelationToggleText,
+                      joinRelationType === "parent" && styles.joinRelationToggleTextActive,
+                    ]}
+                  >
+                    이 사람의 부모
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.resultButtonRow}>
+              <Pressable style={styles.resultSecondaryButton} onPress={closeJoinPreview}>
+                <Text style={styles.resultSecondaryButtonText}>취소</Text>
+              </Pressable>
+              <Pressable
+                style={styles.uploadResultButton}
+                onPress={submitJoinWithRelation}
+                disabled={!joinRelationTargetUserId}
+              >
+                <Text style={styles.uploadResultButtonText}>입장하기</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -4343,6 +4529,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 24,
     gap: 16,
+  },
+  joinFamilyRelationSheet: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    gap: 18,
+  },
+  joinRelationSection: {
+    gap: 10,
+  },
+  joinRelationOptionList: {
+    gap: 10,
+  },
+  joinRelationMemberOption: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  joinRelationMemberOptionActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#EFF6FF",
+  },
+  joinRelationMemberOptionText: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  joinRelationMemberOptionMeta: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  joinRelationMemberOptionTextActive: {
+    color: "#1D4ED8",
+  },
+  joinRelationToggleRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  joinRelationToggle: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  joinRelationToggleActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#DBEAFE",
+  },
+  joinRelationToggleText: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  joinRelationToggleTextActive: {
+    color: "#1D4ED8",
   },
   memberDetailHeader: {
     flexDirection: "row",

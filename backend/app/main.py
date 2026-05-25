@@ -58,11 +58,26 @@ def ensure_user_auth_columns():
         )
 
 
+def ensure_family_member_relation_columns():
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        existing_columns = {column["name"] for column in inspector.get_columns("family_members")}
+        column_statements = {
+            "related_to_user_id": "ALTER TABLE family_members ADD COLUMN related_to_user_id VARCHAR",
+            "relation_to_related_user": "ALTER TABLE family_members ADD COLUMN relation_to_related_user VARCHAR",
+        }
+
+        for column_name, statement in column_statements.items():
+            if column_name not in existing_columns:
+                connection.execute(text(statement))
+
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
     ensure_user_profile_columns()
     ensure_user_auth_columns()
+    ensure_family_member_relation_columns()
     db = SessionLocal()
     try:
         purge_legacy_google_users(db)
