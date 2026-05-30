@@ -1,6 +1,8 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import "react-native-gesture-handler";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Image,
   Keyboard,
@@ -21,6 +23,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
+import { GestureHandlerRootView, PinchGestureHandler, State } from "react-native-gesture-handler";
 
 const uploadTypes = [
   {
@@ -539,15 +542,199 @@ function mapFamilyRoom(room, members, currentUserId) {
   };
 }
 
-function getFamilyRelationLabel(member) {
+function getGenderedRelationName(member, relationToCurrentUser) {
+  const gender = member?.gender || "";
+
+  if (relationToCurrentUser === "spouse") {
+    if (gender === "여성") {
+      return "아내";
+    }
+    if (gender === "남성") {
+      return "남편";
+    }
+    return "배우자";
+  }
+
+  if (relationToCurrentUser === "grandparent") {
+    if (gender === "여성") {
+      return "할머니";
+    }
+    if (gender === "남성") {
+      return "할아버지";
+    }
+    return "조부모";
+  }
+
+  if (relationToCurrentUser === "parent") {
+    if (gender === "여성") {
+      return "엄마";
+    }
+    if (gender === "남성") {
+      return "아빠";
+    }
+    return "부모";
+  }
+
+  if (relationToCurrentUser === "child") {
+    if (gender === "여성") {
+      return "딸";
+    }
+    if (gender === "남성") {
+      return "아들";
+    }
+    return "자녀";
+  }
+
+  return null;
+}
+
+function getParentIdFromMemberRelation(member) {
+  if (!member?.user_id || !member?.related_to_user_id || !member?.relation_to_related_user) {
+    return null;
+  }
+
+  if (!["parent", "child"].includes(member.relation_to_related_user)) {
+    return null;
+  }
+
+  return member.relation_to_related_user === "parent" ? member.user_id : member.related_to_user_id;
+}
+
+function getChildIdFromMemberRelation(member) {
+  if (!member?.user_id || !member?.related_to_user_id || !member?.relation_to_related_user) {
+    return null;
+  }
+
+  if (!["parent", "child"].includes(member.relation_to_related_user)) {
+    return null;
+  }
+
+  return member.relation_to_related_user === "parent" ? member.related_to_user_id : member.user_id;
+}
+
+function getParentIdsForUser(userId, members = []) {
+  return members
+    .filter((member) => getChildIdFromMemberRelation(member) === userId)
+    .map((member) => getParentIdFromMemberRelation(member))
+    .filter(Boolean);
+}
+
+function getSharedParentIds(firstUserId, secondUserId, members = []) {
+  const firstParentIds = getParentIdsForUser(firstUserId, members);
+  const secondParentIds = getParentIdsForUser(secondUserId, members);
+  return firstParentIds.filter((parentId) => secondParentIds.includes(parentId));
+}
+
+function getSiblingRelationName(member, currentUser) {
+  const memberAge = Number.parseInt(String(member?.age || ""), 10);
+  const currentUserAge = Number.parseInt(String(currentUser?.age || ""), 10);
+  const memberGender = member?.gender || "";
+
+  if (!Number.isFinite(memberAge) || !Number.isFinite(currentUserAge)) {
+    if (memberGender === "여성") {
+      return "자매";
+    }
+    if (memberGender === "남성") {
+      return "형제";
+    }
+    return "형제자매";
+  }
+
+  if (memberAge < currentUserAge) {
+    if (memberGender === "여성") {
+      return "여동생";
+    }
+    if (memberGender === "남성") {
+      return "남동생";
+    }
+    return "동생";
+  }
+
+  if (memberAge === currentUserAge) {
+    if (memberGender === "여성") {
+      return "자매";
+    }
+    if (memberGender === "남성") {
+      return "형제";
+    }
+    return "동갑 형제자매";
+  }
+
+  const currentUserGender = currentUser?.gender || "";
+  if (memberGender === "여성") {
+    return currentUserGender === "여성" ? "언니" : "누나";
+  }
+  if (memberGender === "남성") {
+    return currentUserGender === "여성" ? "오빠" : "형";
+  }
+  return "손위 형제";
+}
+
+function getFamilyRelationLabel(member, currentUserId = null, members = []) {
   if (!member?.related_to_user_name || !member?.relation_to_related_user) {
     return null;
+  }
+
+  if (currentUserId && member.user_id === currentUserId) {
+    return "나";
+  }
+
+  if (currentUserId && Array.isArray(members)) {
+    const currentUser = members.find((item) => item?.user_id === currentUserId);
+
+    if (member.related_to_user_id === currentUserId) {
+      const relationName = getGenderedRelationName(member, member.relation_to_related_user);
+      if (relationName) {
+        return relationName;
+      }
+    }
+
+    const currentUserLinkToMember = members.find(
+      (item) => item?.user_id === currentUserId && item.related_to_user_id === member.user_id
+    );
+    if (currentUserLinkToMember) {
+      const reverseRelation = currentUserLinkToMember.relation_to_related_user === "parent"
+        ? "child"
+        : currentUserLinkToMember.relation_to_related_user === "child"
+          ? "parent"
+          : currentUserLinkToMember.relation_to_related_user;
+      const relationName = getGenderedRelationName(member, reverseRelation);
+      if (relationName) {
+        return relationName;
+      }
+    }
+
+    const parentIds = getParentIdsForUser(currentUserId, members);
+    for (const parentId of parentIds) {
+      const parent = members.find((item) => item?.user_id === parentId);
+      const grandParentIds = getParentIdsForUser(parentId, members);
+      if (grandParentIds.includes(member.user_id)) {
+        const grandParentName = getGenderedRelationName(member, "grandparent");
+        if (parent?.gender === "남성") {
+          return `친${grandParentName}`;
+        }
+        if (parent?.gender === "여성") {
+          return `외${grandParentName}`;
+        }
+        return grandParentName;
+      }
+    }
+
+    if (
+      currentUser &&
+      member.user_id !== currentUserId &&
+      getSharedParentIds(member.user_id, currentUserId, members).length > 0
+    ) {
+      return getSiblingRelationName(member, currentUser);
+    }
   }
 
   const relationLabel =
     member.relation_to_related_user === "parent"
       ? `${member.related_to_user_name}의 부모`
-      : `${member.related_to_user_name}의 자녀`;
+      : member.relation_to_related_user === "child"
+        ? `${member.related_to_user_name}의 자녀`
+        : `${member.related_to_user_name}의 배우자`;
 
   return relationLabel;
 }
@@ -585,6 +772,71 @@ function isProfileFormComplete(draft, mode = "complete") {
 
 function getRoleLabel(role) {
   return role === "owner" ? "\ubc29\uc7a5" : "\uad6c\uc131\uc6d0";
+}
+
+function getMemberDisplayName(member) {
+  return member?.name || member?.email || member?.user_id || "가족";
+}
+
+function buildFamilyTreeLevels(members = []) {
+  const memberMap = new Map();
+  const childrenByParent = new Map();
+  const childIds = new Set();
+
+  members.forEach((member) => {
+    if (member?.user_id) {
+      memberMap.set(member.user_id, member);
+      childrenByParent.set(member.user_id, []);
+    }
+  });
+
+  members.forEach((member) => {
+    if (
+      !member?.user_id ||
+      !member?.related_to_user_id ||
+      !memberMap.has(member.related_to_user_id) ||
+      !["parent", "child"].includes(member.relation_to_related_user)
+    ) {
+      return;
+    }
+
+    const parentId = member.relation_to_related_user === "parent" ? member.user_id : member.related_to_user_id;
+    const childId = member.relation_to_related_user === "parent" ? member.related_to_user_id : member.user_id;
+
+    if (memberMap.has(parentId) && memberMap.has(childId) && parentId !== childId) {
+      childrenByParent.get(parentId)?.push(memberMap.get(childId));
+      childIds.add(childId);
+    }
+  });
+
+  const roots = members.filter((member) => member?.user_id && !childIds.has(member.user_id));
+  const firstLevel = roots.length > 0 ? roots : members.filter((member) => member?.user_id);
+  const levels = [];
+  const visited = new Set();
+  let currentLevel = firstLevel;
+
+  while (currentLevel.length > 0) {
+    const uniqueLevel = currentLevel.filter((member) => {
+      if (!member?.user_id || visited.has(member.user_id)) {
+        return false;
+      }
+      visited.add(member.user_id);
+      return true;
+    });
+
+    if (uniqueLevel.length > 0) {
+      levels.push(uniqueLevel);
+    }
+
+    currentLevel = uniqueLevel.flatMap((member) => childrenByParent.get(member.user_id) || []);
+  }
+
+  const unplacedMembers = members.filter((member) => member?.user_id && !visited.has(member.user_id));
+  if (unplacedMembers.length > 0) {
+    levels.push(unplacedMembers);
+  }
+
+  return levels;
 }
 
 export default function App() {
@@ -1837,14 +2089,11 @@ export default function App() {
     return (
       <>
         <LoginScreen
-          apiBaseUrl={apiBaseUrl}
           authLoading={authLoading}
           authLoadingMessage={authLoadingMessage}
           bottomInset={bottomInset}
           onLogin={handleCredentialLogin}
           onSignup={handleCredentialSignup}
-          onSaveApiBaseUrl={handleSaveApiBaseUrl}
-          onCheckBackendConnection={handleCheckBackendConnection}
           onShowPopupResult={showPopupResult}
         />
         {renderPopupModals()}
@@ -2145,35 +2394,19 @@ function LoadingScreen({ message = "업로드 기록과 가족방 정보를 확�
 }
 
 function LoginScreen({
-  apiBaseUrl,
   authLoading,
   authLoadingMessage,
   bottomInset,
   onLogin,
   onSignup,
-  onSaveApiBaseUrl,
-  onCheckBackendConnection,
   onShowPopupResult,
 }) {
-  const [serverUrlInput, setServerUrlInput] = useState(apiBaseUrl);
   const [authMode, setAuthMode] = useState("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-
-  useEffect(() => {
-    setServerUrlInput(apiBaseUrl);
-  }, [apiBaseUrl]);
-
-  async function submitServerUrl() {
-    await onSaveApiBaseUrl(serverUrlInput);
-  }
-
-  async function submitServerCheck() {
-    await onCheckBackendConnection(serverUrlInput);
-  }
 
   async function submitAuth() {
     const cleanUsername = username.trim();
@@ -2246,30 +2479,6 @@ function LoginScreen({
 
         <View style={styles.loginCard}>
           <Text style={styles.loginCardTitle}>{authMode === "login" ? "로그인" : "회원가입"}</Text>
-
-          <View style={styles.serverConfigBox}>
-            <Text style={styles.inputLabel}>{"\ud14c\uc2a4\ud2b8 \uc11c\ubc84 \uc8fc\uc18c"}</Text>
-            <TextInput
-              {...COMMON_SINGLE_LINE_INPUT_PROPS}
-              value={serverUrlInput}
-              onChangeText={setServerUrlInput}
-              placeholder="예: 192.168.219.136:8000 또는 http://192.168.219.136:8000/api/v1"
-              placeholderTextColor="#94A3B8"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              style={styles.textInput}
-            />
-            <View style={styles.serverActionRow}>
-              <Pressable style={[styles.serverSecondaryButton, authLoading && styles.disabledButton]} onPress={submitServerCheck} disabled={authLoading}>
-                <Text style={styles.serverSecondaryButtonText}>{"\uc5f0\uacb0 \ud655\uc778"}</Text>
-              </Pressable>
-              <Pressable style={[styles.serverPrimaryButton, authLoading && styles.disabledButton]} onPress={submitServerUrl} disabled={authLoading}>
-                <Text style={styles.serverPrimaryButtonText}>{"\uc8fc\uc18c \uc800\uc7a5"}</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.loginHint}>{`현재 서버: ${apiBaseUrl}`}</Text>
-          </View>
 
           <View style={styles.authFieldStack}>
             <View>
@@ -2812,6 +3021,37 @@ function MyPageScreen({
   const [joinPreview, setJoinPreview] = useState(null);
   const [joinRelationTargetUserId, setJoinRelationTargetUserId] = useState("");
   const [joinRelationType, setJoinRelationType] = useState("child");
+  const [familyTreeVisible, setFamilyTreeVisible] = useState(false);
+  const familyTreeScale = useRef(new Animated.Value(1)).current;
+  const familyTreeBaseScale = useRef(1);
+  const familyTreePinchScale = useRef(new Animated.Value(1)).current;
+  const familyTreeCombinedScale = Animated.multiply(familyTreeScale, familyTreePinchScale).interpolate({
+    inputRange: [0.65, 1, 2.4],
+    outputRange: [0.65, 1, 2.4],
+    extrapolate: "clamp",
+  });
+  const handleFamilyTreePinchGesture = Animated.event(
+    [{ nativeEvent: { scale: familyTreePinchScale } }],
+    { useNativeDriver: true }
+  );
+
+  function handleFamilyTreePinchStateChange(event) {
+    const nativeEvent = event.nativeEvent;
+    if (nativeEvent.oldState === State.ACTIVE) {
+      const nextScale = Math.min(2.4, Math.max(0.65, familyTreeBaseScale.current * nativeEvent.scale));
+      familyTreeBaseScale.current = nextScale;
+      familyTreeScale.setValue(nextScale);
+      familyTreePinchScale.setValue(1);
+    }
+  }
+
+  useEffect(() => {
+    if (familyTreeVisible) {
+      familyTreeBaseScale.current = 1;
+      familyTreeScale.setValue(1);
+      familyTreePinchScale.setValue(1);
+    }
+  }, [familyTreeVisible, familyTreeScale, familyTreePinchScale]);
 
   async function submitCreate() {
     const success = await onCreateFamily(familyName);
@@ -2924,11 +3164,19 @@ function MyPageScreen({
   </View>
 ) : null}
 
+              <Pressable style={styles.familyTreeOpenButton} onPress={() => setFamilyTreeVisible(true)}>
+                <View>
+                  <Text style={styles.familyTreeOpenTitle}>가족 관계도 보기</Text>
+                  <Text style={styles.familyTreeOpenDescription}>입장 시 선택한 부모/자녀 관계를 트리로 확인합니다.</Text>
+                </View>
+                <Text style={styles.familyTreeOpenArrow}>›</Text>
+              </Pressable>
 
               <View style={styles.familyMemberList}>
                 {activeFamily.members.map((member) => {
-                  const memberLabel = member.name || member.email || member.user_id;
+                  const memberLabel = getMemberDisplayName(member);
                   const memberMeta = member.email && member.email !== memberLabel ? member.email : member.user_id;
+                  const relationLabel = getFamilyRelationLabel(member, user?.id, activeFamily.members);
                   return (
                     <Pressable key={member.user_id} style={styles.familyMemberItem} onPress={() => setSelectedMember(member)}>
                       <View style={styles.familyMemberAvatar}>
@@ -2938,7 +3186,7 @@ function MyPageScreen({
                         <Text style={styles.familyMemberName}>{memberLabel}</Text>
                         <Text style={styles.familyMemberMeta}>
                           {getRoleLabel(member.role)}
-                          {getFamilyRelationLabel(member) ? ` · ${getFamilyRelationLabel(member)}` : ""}
+                          {relationLabel ? ` · ${relationLabel}` : ""}
                           {" \u00b7 "}
                           {memberMeta}
                         </Text>
@@ -3084,6 +3332,124 @@ function MyPageScreen({
           </View>
         </View>
       </Modal>
+      <Modal transparent visible={familyTreeVisible} onRequestClose={() => setFamilyTreeVisible(false)}>
+        <GestureHandlerRootView style={styles.gestureModalRoot}>
+        <View style={styles.centerModalBackdrop}>
+          <View style={styles.familyTreeSheet}>
+            <View style={styles.familyTreeHeader}>
+              <View>
+                <Text style={styles.familyTreeEyebrow}>Family Tree</Text>
+                <Text style={styles.familyTreeTitle}>{activeFamily?.name || "가족방"} 관계도</Text>
+              </View>
+              <Pressable style={styles.familyTreeCloseButton} onPress={() => setFamilyTreeVisible(false)}>
+                <Text style={styles.familyTreeCloseText}>닫기</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.familyTreeDescription}>
+              가족방 입장 시 선택한 부모/자녀 태그를 기준으로 구성원을 세대별로 배치했습니다.
+            </Text>
+
+            <ScrollView
+              style={styles.familyTreeVerticalScroll}
+              contentContainerStyle={styles.familyTreeVerticalContent}
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+            >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator
+                nestedScrollEnabled
+                contentContainerStyle={styles.familyTreeHorizontalContent}
+              >
+                <PinchGestureHandler
+                  onGestureEvent={handleFamilyTreePinchGesture}
+                  onHandlerStateChange={handleFamilyTreePinchStateChange}
+                >
+                  <Animated.View
+                    style={[
+                      styles.familyTreeZoomLayer,
+                      {
+                        transform: [{ scale: familyTreeCombinedScale }],
+                      },
+                    ]}
+                  >
+                    <View style={styles.familyTreeCanvas}>
+                      {buildFamilyTreeLevels(activeFamily?.members || []).map((level, levelIndex, levels) => (
+                        <View key={`level-${levelIndex}`} style={styles.familyTreeLevelBlock}>
+                          <View style={styles.familyTreeLevelBadge}>
+                            <Text style={styles.familyTreeLevelBadgeText}>{levelIndex + 1}세대</Text>
+                          </View>
+                          <View style={styles.familyTreeLevelRow}>
+                            {level.map((member) => {
+                              const isCurrentUser = member.user_id === user?.id;
+                              return (
+                                <View
+                                  key={member.user_id}
+                                  style={[
+                                    styles.familyTreeMemberCard,
+                                    isCurrentUser && styles.familyTreeMemberCardActive,
+                                  ]}
+                                >
+                                  <View style={styles.familyTreeMemberTop}>
+                                    <View
+                                      style={[
+                                        styles.familyTreeAvatar,
+                                        member.gender === "여성" && styles.familyTreeAvatarFemale,
+                                      ]}
+                                    >
+                                      <Text style={styles.familyTreeAvatarText}>
+                                        {getMemberDisplayName(member).slice(0, 1)}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.familyTreeMemberInfo}>
+                                      <Text
+                                        style={[
+                                          styles.familyTreeMemberName,
+                                          isCurrentUser && styles.familyTreeMemberNameActive,
+                                        ]}
+                                        numberOfLines={1}
+                                      >
+                                        {getMemberDisplayName(member)}
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.familyTreeMemberRole,
+                                          isCurrentUser && styles.familyTreeMemberRoleActive,
+                                        ]}
+                                      >
+                                        {isCurrentUser ? "나 · " : ""}
+                                        {getRoleLabel(member.role)}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <View style={styles.familyTreeMetaList}>
+                                    <Text style={styles.familyTreeMetaText}>나이: {member.age ? `${member.age}세` : "미입력"}</Text>
+                                    <Text style={styles.familyTreeMetaText}>성별: {member.gender || "미입력"}</Text>
+                                    <Text style={styles.familyTreeMetaText} numberOfLines={1}>연락처: {member.phone || "미입력"}</Text>
+                                <Text style={styles.familyTreeRelationText}>
+                                  {getFamilyRelationLabel(member, user?.id, activeFamily?.members || []) || "기준 구성원"}
+                                </Text>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                          {levelIndex < levels.length - 1 ? <View style={styles.familyTreeConnector} /> : null}
+                        </View>
+                      ))}
+                    </View>
+                  </Animated.View>
+                </PinchGestureHandler>
+              </ScrollView>
+            </ScrollView>
+
+            <Text style={styles.familyTreeHint}>
+              두 손가락으로 확대/축소하고, 위아래와 좌우로 밀어 전체 관계도를 확인할 수 있습니다.
+            </Text>
+          </View>
+        </View>
+        </GestureHandlerRootView>
+      </Modal>
       <Modal transparent visible={Boolean(joinPreview)} onRequestClose={closeJoinPreview}>
         <View style={styles.centerModalBackdrop}>
           <View style={styles.joinFamilyRelationSheet}>
@@ -3164,6 +3530,22 @@ function MyPageScreen({
                     이 사람의 부모
                   </Text>
                 </Pressable>
+                <Pressable
+                  style={[
+                    styles.joinRelationToggle,
+                    joinRelationType === "spouse" && styles.joinRelationToggleActive,
+                  ]}
+                  onPress={() => setJoinRelationType("spouse")}
+                >
+                  <Text
+                    style={[
+                      styles.joinRelationToggleText,
+                      joinRelationType === "spouse" && styles.joinRelationToggleTextActive,
+                    ]}
+                  >
+                    이 사람의 배우자
+                  </Text>
+                </Pressable>
               </View>
             </View>
 
@@ -3223,6 +3605,9 @@ const styles = StyleSheet.create({
   appFrame: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+  },
+  gestureModalRoot: {
+    flex: 1,
   },
   loginSafeArea: {
     backgroundColor: "#0F172A",
@@ -4117,6 +4502,212 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  familyTreeOpenButton: {
+    marginTop: 14,
+    minHeight: 74,
+    borderRadius: 18,
+    backgroundColor: "#EAF2FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  familyTreeOpenTitle: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  familyTreeOpenDescription: {
+    color: "#64748B",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  familyTreeOpenArrow: {
+    color: "#2563EB",
+    fontSize: 30,
+    fontWeight: "900",
+  },
+  familyTreeSheet: {
+    width: "92%",
+    height: "86%",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 30,
+    padding: 18,
+    gap: 14,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  familyTreeHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  familyTreeEyebrow: {
+    color: "#2563EB",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  familyTreeTitle: {
+    color: "#0F172A",
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 4,
+  },
+  familyTreeCloseButton: {
+    borderRadius: 999,
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  familyTreeCloseText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  familyTreeDescription: {
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  familyTreeVerticalScroll: {
+    flex: 1,
+    borderRadius: 24,
+  },
+  familyTreeVerticalContent: {
+    flexGrow: 1,
+    paddingBottom: 12,
+  },
+  familyTreeHorizontalContent: {
+    flexGrow: 1,
+  },
+  familyTreeZoomLayer: {
+    alignSelf: "flex-start",
+  },
+  familyTreeCanvas: {
+    minWidth: 560,
+    borderRadius: 24,
+    backgroundColor: "#E2E8F0",
+    padding: 12,
+    gap: 8,
+  },
+  familyTreeLevelBlock: {
+    alignItems: "center",
+    gap: 8,
+  },
+  familyTreeLevelBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: "#0F172A",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  familyTreeLevelBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  familyTreeLevelRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  familyTreeMemberCard: {
+    width: 172,
+    minHeight: 136,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    padding: 10,
+    gap: 8,
+  },
+  familyTreeMemberCardActive: {
+    backgroundColor: "#1D4ED8",
+    borderColor: "#F59E0B",
+    borderWidth: 3,
+  },
+  familyTreeMemberTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  familyTreeAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  familyTreeAvatarFemale: {
+    backgroundColor: "#FCE7F3",
+  },
+  familyTreeAvatarText: {
+    color: "#0F172A",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  familyTreeMemberInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  familyTreeMemberName: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  familyTreeMemberNameActive: {
+    color: "#FFFFFF",
+  },
+  familyTreeMemberRole: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  familyTreeMemberRoleActive: {
+    color: "#BFDBFE",
+  },
+  familyTreeMetaList: {
+    gap: 4,
+  },
+  familyTreeMetaText: {
+    color: "#334155",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  familyTreeRelationText: {
+    color: "#2563EB",
+    fontSize: 11,
+    fontWeight: "900",
+    marginTop: 3,
+  },
+  familyTreeConnector: {
+    width: 2,
+    height: 20,
+    backgroundColor: "#94A3B8",
+    borderRadius: 999,
+  },
+  familyTreeHint: {
+    color: "#64748B",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
   familyDeleteChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -4572,10 +5163,12 @@ const styles = StyleSheet.create({
   },
   joinRelationToggleRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   joinRelationToggle: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#CBD5E1",

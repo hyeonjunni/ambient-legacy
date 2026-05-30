@@ -21,7 +21,7 @@ from app.services.account_cleanup import delete_family_room_with_related_data
 
 
 router = APIRouter()
-VALID_MEMBER_RELATIONS = {"parent", "child"}
+VALID_MEMBER_RELATIONS = {"parent", "child", "spouse"}
 
 
 def ensure_family_member(db: Session, room_id: str, user_id: str) -> FamilyMember:
@@ -139,7 +139,7 @@ def join_family(payload: FamilyJoinRequest, db: Session = Depends(get_db), curre
             if not payload.related_to_user_id or payload.relation_to_related_user not in VALID_MEMBER_RELATIONS:
                 raise HTTPException(
                     status_code=400,
-                    detail="Joining a family room requires selecting an existing member and whether you are their parent or child.",
+                    detail="Joining a family room requires selecting an existing member and your relationship to that member.",
                 )
 
             related_member = db.scalar(
