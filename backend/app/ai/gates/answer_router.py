@@ -16,8 +16,8 @@ from app.ai.gates.entity_index import (
 )
 from app.ai.gates.textrules import content_tokens
 
-FACT_CUES = ("언제", "몇 시", "몇시", "며칠", "몇 월", "몇월", "몇 년", "몇년", "어디", "누구",
-             "누가", "이름", "얼마", "몇 명", "몇명", "날짜", "시각", "장소")
+FACT_CUES = ("언제", "몇 시", "몇시", "며칠", "몇 월", "몇월", "몇 년", "몇년", "어디", "어느",
+             "누구", "누가", "이름", "얼마", "몇 명", "몇명", "날짜", "시각", "장소")
 
 REFUSE_TMPL = ("기록을 확인했지만, 물어보신 내용은 현재 가족 기록에서 확인되지 않습니다. "
                "관련해서 남아 있는 기록은 다음과 같습니다: {quotes}")
@@ -48,7 +48,7 @@ def asked_atom_kinds(query: str) -> set[str]:
         kinds.add("date_any")
     if any(c in query for c in ("얼마", "몇 명", "몇명", "몇 개", "몇개", "몇 스푼")):
         kinds.add("number")
-    if any(c in query for c in ("이름", "어디", "장소", "누가", "누구")):
+    if any(c in query for c in ("이름", "어디", "어느", "장소", "누가", "누구")):
         kinds.add("entity")
     return kinds
 
