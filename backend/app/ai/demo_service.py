@@ -8,6 +8,8 @@ from app.ai.provider_factory import get_provider_for_model
 from app.ai.providers.base import InferenceRequest
 from app.ai.persona_loader import load_persona_pack
 from app.ai.prompt_builder import RetrievalChunk, build_prompt_package
+from app.ai.gates.answer_router import route_query
+from app.ai.gates.output_gate import apply_output_gate
 from app.api.routes.uploads import ensure_room_member, unpack_description_and_tags
 from app.models.upload import Upload
 
@@ -36,6 +38,25 @@ PERSONA_SUMMARIES = {
     },
 }
 
+QUERY_STOP_TERMS = {
+    "db",
+    "가족방",
+    "기록",
+    "관련",
+    "내용",
+    "찾아",
+    "요약",
+    "요약해줘",
+    "알려줘",
+    "답해줘",
+    "있으면",
+    "없으면",
+    "정확한",
+    "이름",
+    "2문장",
+    "2문장으로",
+}
+
 
 def normalize_term(term: str) -> str:
     term = term.strip()
@@ -44,6 +65,20 @@ def normalize_term(term: str) -> str:
         if term.endswith(suffix) and len(term) > len(suffix) + 1:
             return term[: -len(suffix)]
     return term
+
+
+def extract_search_terms(query: str) -> set[str]:
+    query_terms: set[str] = set()
+    normalized_query = query
+    for punctuation in ["?", ",", ".", "!", ":", ";", "/", "\\", "(", ")", "[", "]"]:
+        normalized_query = normalized_query.replace(punctuation, " ")
+
+    for raw_term in normalized_query.split():
+        term = normalize_term(raw_term)
+        if len(term) < 2 or term.casefold() in QUERY_STOP_TERMS:
+            continue
+        query_terms.add(term)
+    return query_terms
 
 
 def load_selected_persona_markdown(persona_id: str) -> str:
@@ -73,11 +108,7 @@ def retrieve_room_chunks(db: Session, room_id: str, user_id: str, query: str, li
         .order_by(Upload.created_at.desc(), Upload.id.desc())
     ).all()
 
-    query_terms = {
-        normalize_term(term)
-        for term in query.replace("?", " ").replace(",", " ").split()
-        if normalize_term(term)
-    }
+    query_terms = extract_search_terms(query)
 
     scored: list[tuple[int, Upload]] = []
     for upload in uploads:
@@ -95,17 +126,19 @@ def retrieve_room_chunks(db: Session, room_id: str, user_id: str, query: str, li
             scored.append((score, upload))
 
     scored.sort(key=lambda item: item[0], reverse=True)
-    selected_uploads = [upload for _, upload in scored[:limit]]
+    selected = scored[:limit]
 
+    # confidence = 실제 커버리지(질의 내용어 중 매치 비율). 하드코드 0.75는 허구였다.
+    denom = max(len(query_terms), 1)
     return [
         RetrievalChunk(
             source_type=upload.type,
             timestamp=upload.created_at.isoformat() if upload.created_at else "",
             text=f"{upload.title} {(unpack_description_and_tags(upload.description)[0] or '')}".strip(),
             tags=[upload.type, "family-room", *unpack_description_and_tags(upload.description)[1]],
-            confidence=0.75,
+            confidence=round(score / denom, 2),
         )
-        for upload in selected_uploads
+        for score, upload in selected
     ]
 
 
@@ -147,6 +180,27 @@ def build_demo_chat_response(
         user_query=query,
         retrieved_chunks=chunks,
     )
+    evidence_texts = [chunk.text for chunk in chunks]
+
+    # ── 입력 래더 (Phase 2): 기록으로 답 못 하는 질문은 LLM을 부르지 않는다 ──
+    decision = route_query(query, evidence_texts)
+    if decision.route != "ANSWER":
+        return {
+            "answer": decision.answer,
+            "answer_source": "rule_gate",
+            "gate_route": decision.route,
+            "gate_detail": decision.detail,
+            "gate_action": "llm_not_called",
+            "inference_source": "rule_gate",
+            "provider_name": "rule_gate",
+            "provider_mode": "rule_gate",
+            "provider_output_preview": None,
+            "selected_model": prompt_package["model_profile"],
+            "retrieved_evidence": prompt_package["retrieved_evidence"],
+            "persona_preview": persona_markdown[:400],
+            "prompt_package": prompt_package,
+        }
+
     provider = get_provider_for_model(model_id)
     provider_response = provider.generate(
         InferenceRequest(
@@ -162,10 +216,21 @@ def build_demo_chat_response(
         placement=prompt_package["model_profile"]["placement"],
     )
     should_prefer_fallback = provider_response.mode in {"mock", "unconfigured", "error"}
-    answer = fallback_answer if should_prefer_fallback else (provider_response.output_text or fallback_answer)
+    if should_prefer_fallback:
+        answer = fallback_answer
+        answer_source = "fallback"
+        gate_action = "skipped_fallback"
+    else:
+        # ── 출력 게이트 (Phase 1): 누수 제거 + 문장 단위 근거 대조 ──
+        gate = apply_output_gate(provider_response.output_text or "", query, evidence_texts)
+        answer = gate.answer
+        answer_source = "provider+gate"
+        gate_action = gate.action
     return {
         "answer": answer,
-        "answer_source": "fallback" if should_prefer_fallback else "provider",
+        "answer_source": answer_source,
+        "gate_route": decision.route,
+        "gate_action": gate_action,
         "inference_source": prompt_package["model_profile"]["placement"],
         "provider_name": provider_response.provider,
         "provider_mode": provider_response.mode,
