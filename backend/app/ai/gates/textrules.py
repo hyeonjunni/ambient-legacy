@@ -7,6 +7,31 @@
 from __future__ import annotations
 
 import re
+import unicodedata
+
+# SCPC 이식: 안전한 단방향 표기 접기 (메신저 종결 변이·맞춤법 혼동 — 검증된 목록만)
+CANONICAL_FOLDS = (
+    ("해주세여", "해줘"), ("해주세용", "해줘"), ("해주세요", "해줘"), ("해줘요", "해줘"),
+    ("알려주세여", "알려줘"), ("알려주세요", "알려줘"), ("알려줘요", "알려줘"),
+    ("됬", "됐"), ("안됨", "안된다"), ("안돼", "안된다"),
+)
+
+
+def normalize_query(text: str) -> str:
+    out = unicodedata.normalize("NFC", text or "")
+    for variant, canonical in CANONICAL_FOLDS:
+        out = out.replace(variant, canonical)
+    return out
+
+
+def has_cue(text: str, cues) -> bool:
+    """공백 유무에 강건한 cue 매칭 — '몇 시'와 '몇시'를 하나의 cue로 처리 (SCPC normalize 이식)."""
+    normalized = normalize_query(text)
+    squashed = normalized.replace(" ", "")
+    for cue in cues:
+        if cue in normalized or cue.replace(" ", "") in squashed:
+            return True
+    return False
 
 JOSA = ["에서", "으로", "에게", "께서", "이었는지", "였는지", "인지", "과", "와", "은", "는",
         "이", "가", "을", "를", "도", "만", "의", "에", "로", "야"]

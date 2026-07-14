@@ -14,7 +14,7 @@ from app.ai.gates.entity_index import (
     has_named_place_of,
     question_place_category,
 )
-from app.ai.gates.textrules import content_tokens
+from app.ai.gates.textrules import content_tokens, has_cue
 
 FACT_CUES = ("언제", "몇 시", "몇시", "며칠", "몇 월", "몇월", "몇 년", "몇년", "어디", "어느",
              "누구", "누가", "이름", "얼마", "몇 명", "몇명", "날짜", "시각", "장소")
@@ -37,18 +37,18 @@ class RouteDecision:
 
 def asked_atom_kinds(query: str) -> set[str]:
     kinds: set[str] = set()
-    if any(c in query for c in ("몇 시", "몇시", "시각", "몇 분", "몇분")):
+    if has_cue(query, ("몇 시", "시각", "몇 분")):
         kinds.add("time")
     # 날짜는 세분화: 월/일을 물으면 연도만 있는 기록으로는 답할 수 없다
-    if any(c in query for c in ("며칠", "몇 월", "몇월")):
+    if has_cue(query, ("며칠", "몇 월")):
         kinds.add("date_md")
-    if any(c in query for c in ("몇 년", "몇년", "년도")):
+    if has_cue(query, ("몇 년", "년도")):
         kinds.add("date_y")
-    if any(c in query for c in ("날짜", "언제")) and not (kinds & {"date_md", "date_y"}):
+    if has_cue(query, ("날짜", "언제")) and not (kinds & {"date_md", "date_y"}):
         kinds.add("date_any")
-    if any(c in query for c in ("얼마", "몇 명", "몇명", "몇 개", "몇개", "몇 스푼")):
+    if has_cue(query, ("얼마", "몇 명", "몇 개", "몇 스푼")):
         kinds.add("number")
-    if any(c in query for c in ("이름", "어디", "어느", "장소", "누가", "누구")):
+    if has_cue(query, ("이름", "어디", "어느", "장소", "누가", "누구")):
         kinds.add("entity")
     return kinds
 
@@ -121,7 +121,7 @@ def route_query(query: str, evidence_texts: list[str],
     index = entity_index or RoomEntityIndex()
     joined = " ".join(evidence_texts)
     kinds = asked_atom_kinds(query)
-    is_fact = bool(kinds) or any(c in query for c in FACT_CUES)
+    is_fact = bool(kinds) or has_cue(query, FACT_CUES)
 
     if "time" in kinds:
         conflict = _detect_time_conflict(evidence_texts)
