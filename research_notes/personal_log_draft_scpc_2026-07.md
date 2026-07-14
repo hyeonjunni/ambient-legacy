@@ -2,6 +2,67 @@
 
 ---
 
+## [선행 항목 A] — 항목 1보다 앞 시기(6월분)에 배치
+
+**연구 내용**: 소형 LLM LoRA 파인튜닝 3단계 실험 — 가족기록 guardrail 행동의 학습 가능성 검증 (Gemma E2B vs EXAONE 2.4B)
+
+**작성자**: 조현준 **일자**: 2026년 5월 30일 **번호**: (해당 시기 번호)
+
+**참고**:
+- research_notes/personal_research_log_dataset_expansion_finetune_2026-05-30.md (원본 상세 기록)
+- research_notes/finetune_comparison_gemma_exaone_2026-05-30.md, finetune_v1~v3 평가 JSON
+- MLX-LM LoRA (Apple Silicon 로컬 학습), KoAlpaca·KIT-19(표현 참고만, row 미복사)
+
+1. 가족기록 RAG에 필요한 6가지 행동(근거만 사용, 미기록 사실 무발명, saved_at≠사건날짜,
+   모순 양립 제시, 내부 메타데이터 비노출, 짧은 한국어)을 소형 모델 LoRA로 학습시킬 수
+   있는지 3단계(v1 592행 → v2 hard-negative 확장 → v3 targeted repair)로 검증하였다.
+2. 학습 데이터는 전량 결정론 템플릿 기반 합성으로 제작하였다. 외부 데이터셋 row를 복사하지
+   않은 이유는 본 서비스의 실패 모드(OCR/텍스트 충돌, 저장시각 오해, persona 노출)가 일반
+   instruction 데이터와 다르고, EXAONE 출력물은 NC 라이선스상 타 모델 학습에 쓰지 않는
+   것이 안전하기 때문이다.
+3. v2 평가에서 발견된 실패 유형을 v3 데이터로 겨냥 보수(targeted repair)하는 반복 구조를
+   확립하였다 — 이후 6월 32B 학습과 7월 골든셋 평가 체계의 원형이 되었다.
+
+---
+
+## [선행 항목 B] — 항목 1보다 앞 시기(6월분)에 배치
+
+**연구 내용**: Qwen2.5 32B QLoRA 도메인 파인튜닝 풀런 — 데이터셋 v4 구축, DGX 학습, guardrail 평가 및 Ollama 배포
+
+**작성자**: 조현준 **일자**: 2026년 6월 20일~21일 **번호**: (해당 시기 번호)
+
+**참고**:
+- research_notes/dgx_qwen32b_finetune_run_2026-06-20.md (원본 풀런 기록)
+- research_notes/transformers_guardrail_eval_qwen25_32b_{base,qlora_v4}_20260621.md
+- LLaMA Factory(QLoRA·bitsandbytes NF4), llama.cpp(GGUF 변환), NVIDIA DGX Spark 파인튜닝 플레이북
+- 공개 데이터: DILAB-HYU/KoQuality(CC-BY-4.0), deepset/prompt-injections(Apache-2.0)
+
+1. 모델 선정: 배포 관점에서 Qwen2.5-32B-Instruct를 첫 후보로 확정하였다. Apache-2.0
+   라이선스로 배포 경로가 단순하고(EXAONE 32B는 NC 제약으로 연구 비교용 유지), DGX
+   Spark의 128GB 통합 메모리에서 QLoRA 학습이 안정적으로 가능함을 근거로 하였다.
+2. 데이터셋 v4(총 6,052행 = 기존 합성 3,424 + 결정론 도메인 744 + KoQuality 1,049 +
+   prompt-injection 각색 263 + 72B teacher 질문 변형 572)를 구축하였다. 핵심 정책으로
+   teacher 모델은 적대적 질문 변형만 생성하고 정답은 전부 프로젝트의 결정론 guardrail
+   템플릿에서 가져오도록 하여, 정답 품질이 모델 환각에 오염되지 않도록 하였다.
+3. 학습: 4-bit NF4 QLoRA(rank 32/alpha 64, 전체 linear 모듈, 유효 배치 8, lr 5e-5,
+   1 epoch)를 수행하였다. 학습 파라미터 비율 0.81%, 총 4시간 28분, 최종 검증 손실
+   0.3093으로 관찰 체크포인트 중 최저였다.
+4. 평가: 동일 8문항 guardrail 평가에서 base 5/8 → 튜닝 8/8로 개선되었다. base의 실패
+   사례는 내부 메타데이터 노출(tags·confidence 원문 출력), 미기록 식당명 발명("해변가
+   향기"라는 이름을 지어냄), 모순 기록 중 한쪽 단정 선택이었다. 평가 과정에서 자동
+   분류기가 한국어 거절 표현을 인식하지 못해 오채점하는 문제를 발견·수정하고 회귀 검사
+   6건을 통과시켰다 — 평가 도구 자체의 검증 필요성을 확인하였다.
+5. 배포: 어댑터 병합 → llama.cpp GGUF 변환 → Q4_K_M 양자화(19GB) → Ollama 등록
+   (ambient-legacy-qwen25-32b-v4)까지 완료하였고, 양자화 후에도 8/8 통과와 평균
+   10.3 tok/s를 확인, 백엔드 API에 모델로 연결하였다.
+6. 시사점(사후 기록): 본 파인튜닝은 결과적으로 "결정론 템플릿의 행동을 가중치에 굽는"
+   작업이었다. 7월 실측(항목 2)에서 같은 결정론 규칙을 런타임 게이트로 적용하자 2B급
+   모델이 본 32B 튜닝 모델 단독 성능을 상회함을 확인하였고, 이에 따라 학습으로 굽는
+   방식과 런타임 규칙 방식의 비용·갱신성 비교가 가능해졌다(기록 추가 시 재학습 불요).
+   본 항목은 그 비교의 원본 대조군 기록이다.
+
+---
+
 ## [항목 1]
 
 **연구 내용**: SCPC 2026 AI 에이전트 하네스 대회 참가를 통한 LLM 판단 한계 실측 및 규칙 기반 하네스 설계 방법론 도출
