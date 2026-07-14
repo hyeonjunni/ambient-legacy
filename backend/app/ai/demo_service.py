@@ -9,9 +9,12 @@ from app.ai.providers.base import InferenceRequest
 from app.ai.persona_loader import load_persona_pack
 from app.ai.prompt_builder import RetrievalChunk, build_prompt_package
 from app.ai.gates.answer_router import route_query
+from app.ai.gates.entity_index import build_room_entity_index
 from app.ai.gates.output_gate import apply_output_gate
 from app.api.routes.uploads import ensure_room_member, unpack_description_and_tags
+from app.models.family import FamilyMember
 from app.models.upload import Upload
+from app.models.user import User
 
 
 PERSONA_ROOT = Path(__file__).resolve().parents[1] / "personas"
@@ -142,6 +145,29 @@ def retrieve_room_chunks(db: Session, room_id: str, user_id: str, query: str, li
     ]
 
 
+def load_room_entity_sources(db: Session, room_id: str) -> tuple[list[str], list[str]]:
+    """가족방 엔티티 사전 재료 — 멤버(이름+관계 호칭)는 DB에서, 장소는 방 전체 기록에서."""
+    member_rows = db.execute(
+        select(User.name, FamilyMember.relation_to_related_user)
+        .join(FamilyMember, FamilyMember.user_id == User.id)
+        .where(FamilyMember.room_id == room_id)
+    ).all()
+    member_names: list[str] = []
+    for name, relation in member_rows:
+        if name:
+            member_names.append(str(name))
+        if relation:
+            member_names.append(str(relation))
+
+    uploads = db.scalars(select(Upload).where(Upload.room_id == room_id)).all()
+    record_texts = []
+    for upload in uploads:
+        clean_description, upload_tags = unpack_description_and_tags(upload.description)
+        record_texts.append(" ".join(
+            [upload.title or "", clean_description or "", " ".join(upload_tags)]).strip())
+    return member_names, record_texts
+
+
 def render_demo_answer(persona_id: str, evidence_lines: Iterable[str], query: str, placement: str) -> str:
     evidence_list = list(evidence_lines)
     if evidence_list and evidence_list[0] != "- 검색된 개인 또는 가족 기록이 없습니다.":
@@ -181,9 +207,11 @@ def build_demo_chat_response(
         retrieved_chunks=chunks,
     )
     evidence_texts = [chunk.text for chunk in chunks]
+    member_names, record_texts = load_room_entity_sources(db, room_id)
+    entity_index = build_room_entity_index(member_names, record_texts)
 
     # ── 입력 래더 (Phase 2): 기록으로 답 못 하는 질문은 LLM을 부르지 않는다 ──
-    decision = route_query(query, evidence_texts)
+    decision = route_query(query, evidence_texts, entity_index)
     if decision.route != "ANSWER":
         return {
             "answer": decision.answer,
@@ -221,8 +249,9 @@ def build_demo_chat_response(
         answer_source = "fallback"
         gate_action = "skipped_fallback"
     else:
-        # ── 출력 게이트 (Phase 1): 누수 제거 + 문장 단위 근거 대조 ──
-        gate = apply_output_gate(provider_response.output_text or "", query, evidence_texts)
+        # ── 출력 게이트 (Phase 1): 누수 제거 + 문장 단위 근거·엔티티 대조 ──
+        gate = apply_output_gate(provider_response.output_text or "", query,
+                                 evidence_texts, entity_index)
         answer = gate.answer
         answer_source = "provider+gate"
         gate_action = gate.action

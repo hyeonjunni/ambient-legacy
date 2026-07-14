@@ -8,6 +8,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from app.ai.gates.entity_index import (
+    RoomEntityIndex,
+    has_any_person,
+    has_named_place_of,
+    question_place_category,
+)
 from app.ai.gates.textrules import content_tokens
 
 FACT_CUES = ("언제", "몇 시", "몇시", "며칠", "몇 월", "몇월", "몇 년", "몇년", "어디", "누구",
@@ -47,6 +53,30 @@ def asked_atom_kinds(query: str) -> set[str]:
     return kinds
 
 
+def _entity_answerable(query: str, evidence_texts: list[str],
+                       index: RoomEntityIndex) -> tuple[bool, str]:
+    """엔티티 질문의 답변 가능성 — 가족방 사전 기반 (v2: 얕은 접점 판정을 대체).
+
+    - '식당/병원/공원…' 카테고리 이름 질문 → 그 카테고리의 '이름 있는' 장소가 있어야 함
+    - '누가/누구' 인물 질문 → 기록/사전에 인물(멤버 이름·호칭)이 등장해야 함
+    - 일반 '어디' 질문 → 아무 장소 신호(접미사 토큰)라도 있으면 답변 가능
+    """
+    category = question_place_category(query)
+    if category is not None:
+        ok = has_named_place_of(category, index, evidence_texts)
+        return ok, f"place_category={category[0]}"
+    if any(word in query for word in ("누가", "누구")):
+        return has_any_person(index, evidence_texts), "person"
+    if any(word in query for word in ("어디", "장소")):
+        joined = " ".join(evidence_texts)
+        from app.ai.gates.entity_index import PLACE_SUFFIXES
+        ok = any(suffix in joined for suffix in PLACE_SUFFIXES)
+        return ok, "generic_place"
+    # '이름' 단독 등 — 판별 불가면 보수적으로 접점 판정에 위임
+    joined = " ".join(evidence_texts)
+    return len(content_tokens(query) & content_tokens(joined)) >= 1, "fallback_overlap"
+
+
 def _evidence_has_kind(kind: str, query: str, evidence_text: str) -> bool:
     if kind == "time":
         return bool(re.search(r"\d{1,2}\s*시|\d{1,2}:\d{2}", evidence_text))
@@ -83,10 +113,12 @@ def _quote_snippets(evidence_texts: list[str], limit: int = 2) -> str:
                       for t in evidence_texts[:limit])
 
 
-def route_query(query: str, evidence_texts: list[str]) -> RouteDecision:
+def route_query(query: str, evidence_texts: list[str],
+                entity_index: RoomEntityIndex | None = None) -> RouteDecision:
     if not evidence_texts:
         return RouteDecision(route="NO_RECORD", answer=NO_RECORD_TMPL, detail="no_evidence")
 
+    index = entity_index or RoomEntityIndex()
     joined = " ".join(evidence_texts)
     kinds = asked_atom_kinds(query)
     is_fact = bool(kinds) or any(c in query for c in FACT_CUES)
@@ -100,7 +132,15 @@ def route_query(query: str, evidence_texts: list[str]) -> RouteDecision:
                 detail="time_conflict")
 
     if is_fact:
-        missing = [k for k in sorted(kinds) if not _evidence_has_kind(k, query, joined)]
+        missing: list[str] = []
+        detail_parts: list[str] = []
+        for kind in sorted(kinds):
+            if kind == "entity":
+                ok, why = _entity_answerable(query, evidence_texts, index)
+                if not ok:
+                    missing.append(f"entity({why})")
+            elif not _evidence_has_kind(kind, query, joined):
+                missing.append(kind)
         if missing:
             return RouteDecision(
                 route="REFUSE", asked_kinds=sorted(kinds),
