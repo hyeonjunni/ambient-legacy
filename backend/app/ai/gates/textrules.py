@@ -14,7 +14,58 @@ CANONICAL_FOLDS = (
     ("해주세여", "해줘"), ("해주세용", "해줘"), ("해주세요", "해줘"), ("해줘요", "해줘"),
     ("알려주세여", "알려줘"), ("알려주세요", "알려줘"), ("알려줘요", "알려줘"),
     ("됬", "됐"), ("안됨", "안된다"), ("안돼", "안된다"),
+    # 흔한 맞춤법 오류 → 표준형 (cue 어휘와 직결되는 것만: 몇일은 며칠의 대표적 오기)
+    ("몇 일", "며칠"), ("몇일", "며칠"), ("메칠", "며칠"), ("몇 칠", "며칠"),
+    ("어데", "어디"), ("오데", "어디"), ("어듸", "어디"),
+    ("얼마에요", "얼마"), ("얼마예요", "얼마"), ("멫", "몇"),
 )
+
+# ── SCPC 이식: 두벌식 인접키 자모 오타 1글자 허용 매칭 ─────────────────────────
+# 한글 4음절 이상 cue에만 적용 (짧은 cue는 오탐 위험 — SCPC 검증 임계 그대로)
+_HANGUL_LEADS = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+_HANGUL_VOWELS = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
+_HANGUL_TAILS = "\0ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ"
+_DUBEOLSIK_ROWS = ("ㅂㅈㄷㄱㅅ", "ㅁㄴㅇㄹㅎ", "ㅋㅌㅊㅍ", "ㅛㅕㅑㅐㅔ", "ㅗㅓㅏㅣ", "ㅠㅜㅡ")
+_DUBEOLSIK_POSITION = {
+    jamo: (row_index, column_index)
+    for row_index, row in enumerate(_DUBEOLSIK_ROWS)
+    for column_index, jamo in enumerate(row)
+}
+
+
+def _hangul_parts(char: str):
+    offset = ord(char) - 0xAC00
+    if not 0 <= offset < 11172:
+        return None
+    lead, rest = divmod(offset, 588)
+    vowel, tail = divmod(rest, 28)
+    return _HANGUL_LEADS[lead], _HANGUL_VOWELS[vowel], _HANGUL_TAILS[tail]
+
+
+def _adjacent_jamo(left: str, right: str) -> bool:
+    lp = _DUBEOLSIK_POSITION.get(left)
+    rp = _DUBEOLSIK_POSITION.get(right)
+    return lp is not None and rp is not None and lp[0] == rp[0] and abs(lp[1] - rp[1]) == 1
+
+
+def one_adjacent_jamo_typo(text: str, cue: str) -> bool:
+    """cue와 정확히 한 글자만 다르고, 그 차이가 인접키 자모 1개인 창이 text에 있으면 True."""
+    hangul_count = sum("가" <= ch <= "힣" for ch in cue)
+    if hangul_count < 4:
+        return False
+    for start in range(len(text) - len(cue) + 1):
+        window = text[start:start + len(cue)]
+        diffs = [(a, b) for a, b in zip(window, cue) if a != b]
+        if len(diffs) != 1:
+            continue
+        left_parts = _hangul_parts(diffs[0][0])
+        right_parts = _hangul_parts(diffs[0][1])
+        if left_parts is None or right_parts is None:
+            continue
+        comp = [(a, b) for a, b in zip(left_parts, right_parts) if a != b]
+        if len(comp) == 1 and _adjacent_jamo(*comp[0]):
+            return True
+    return False
 
 
 def normalize_query(text: str) -> str:
@@ -25,11 +76,14 @@ def normalize_query(text: str) -> str:
 
 
 def has_cue(text: str, cues) -> bool:
-    """공백 유무에 강건한 cue 매칭 — '몇 시'와 '몇시'를 하나의 cue로 처리 (SCPC normalize 이식)."""
+    """공백·오타 강건 cue 매칭 — 표기 접기 + 무공백 + 인접키 자모 오타 1글자(4음절+ cue만)."""
     normalized = normalize_query(text)
     squashed = normalized.replace(" ", "")
     for cue in cues:
-        if cue in normalized or cue.replace(" ", "") in squashed:
+        squashed_cue = cue.replace(" ", "")
+        if cue in normalized or squashed_cue in squashed:
+            return True
+        if one_adjacent_jamo_typo(squashed, squashed_cue):
             return True
     return False
 

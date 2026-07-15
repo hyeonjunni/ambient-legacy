@@ -8,7 +8,7 @@ from app.ai.provider_factory import get_provider_for_model
 from app.ai.providers.base import InferenceRequest
 from app.ai.persona_loader import load_persona_pack
 from app.ai.prompt_builder import RetrievalChunk, build_prompt_package
-from app.ai.gates.answer_router import route_query
+from app.ai.gates.answer_router import CLARIFY_TMPL, RouteDecision, route_query
 from app.ai.gates.entity_index import build_room_entity_index
 from app.ai.gates.output_gate import apply_output_gate
 from app.api.routes.uploads import ensure_room_member, unpack_description_and_tags
@@ -209,9 +209,53 @@ def build_demo_chat_response(
     evidence_texts = [chunk.text for chunk in chunks]
     member_names, record_texts = load_room_entity_sources(db, room_id)
     entity_index = build_room_entity_index(member_names, record_texts)
+    provider = get_provider_for_model(model_id)
 
     # ── 입력 래더 (Phase 2): 기록으로 답 못 하는 질문은 LLM을 부르지 않는다 ──
-    decision = route_query(query, evidence_texts, entity_index)
+    effective_query = query
+    decision = route_query(effective_query, evidence_texts, entity_index)
+
+    # 방에 기록은 있는데 '검색'만 0건이면 NO_RECORD가 아니라 CLARIFY가 맞는 메시지다.
+    if decision.route == "NO_RECORD" and record_texts:
+        decision = RouteDecision(route="CLARIFY", answer=CLARIFY_TMPL, detail="retrieval_miss")
+
+    # CLARIFY일 때만 LLM에게 질문 재작성(오타/맞춤법/축약 복원)을 1회 맡긴다 —
+    # 재작성은 '지각' 작업이고, 재작성 결과도 다시 규칙 래더가 판정한다 (제어권은 규칙에).
+    if decision.route == "CLARIFY":
+        rewrite_response = provider.generate(InferenceRequest(
+            model_id=model_id,
+            user_query=query,
+            prompt_package={
+                "model_profile": prompt_package["model_profile"],
+                "instructions": (
+                    "사용자 질문을 표준 맞춤법의 자연스러운 한국어 한 문장으로 고쳐 쓰라. "
+                    "의미를 더하거나 빼지 말고, 고친 질문 한 문장만 출력하라."),
+                "persona_markdown": "",
+                "retrieved_evidence": [],
+                "user_query": query,
+            },
+        ))
+        rewritten = (rewrite_response.output_text or "").strip().strip('"')
+        if (rewrite_response.mode not in {"mock", "unconfigured", "error"}
+                and 0 < len(rewritten) <= 200 and rewritten != query):
+            # 재작성 질문으로 재검색까지 수행 — 검색 실패형 CLARIFY도 여기서 복구된다
+            new_chunks = retrieve_room_chunks(db=db, room_id=room_id, user_id=user_id,
+                                              query=rewritten)
+            new_evidence = [chunk.text for chunk in new_chunks]
+            redecision = route_query(rewritten, new_evidence, entity_index)
+            if redecision.route != "CLARIFY" and not (
+                    redecision.route == "NO_RECORD" and record_texts):
+                effective_query = rewritten
+                chunks = new_chunks
+                evidence_texts = new_evidence
+                redecision.detail = f"{redecision.detail}+llm_rewrite"
+                decision = redecision
+                prompt_package = build_prompt_package(
+                    model_id=model_id,
+                    persona_markdown=persona_markdown,
+                    user_query=effective_query,
+                    retrieved_chunks=chunks,
+                )
     if decision.route != "ANSWER":
         return {
             "answer": decision.answer,
@@ -229,10 +273,9 @@ def build_demo_chat_response(
             "prompt_package": prompt_package,
         }
 
-    provider = get_provider_for_model(model_id)
     request = InferenceRequest(
         model_id=model_id,
-        user_query=query,
+        user_query=effective_query,
         prompt_package=prompt_package,
     )
     provider_response = provider.generate(request)
@@ -253,7 +296,7 @@ def build_demo_chat_response(
         gate_action = "skipped_fallback"
     else:
         # ── 출력 게이트 (Phase 1): 누수 제거 + 문장 단위 근거·엔티티 대조 ──
-        gate = apply_output_gate(provider_response.output_text or "", query,
+        gate = apply_output_gate(provider_response.output_text or "", effective_query,
                                  evidence_texts, entity_index)
         answer = gate.answer
         answer_source = "provider+gate"
@@ -262,6 +305,7 @@ def build_demo_chat_response(
         "answer": answer,
         "answer_source": answer_source,
         "gate_route": decision.route,
+        "gate_detail": decision.detail,
         "gate_action": gate_action,
         "inference_source": prompt_package["model_profile"]["placement"],
         "provider_name": provider_response.provider,

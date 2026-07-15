@@ -170,6 +170,26 @@ res = chat("막내 생일 기록 요약해줘.")
 check("빈응답 → 1회 재시도 후 정상 응답", stub.calls == before + 2
       and "5월 3일" in res["answer"], f"calls+{stub.calls - before}")
 
+print("⑤ 오타/맞춤법 내성")
+stub.script = ["막내 생일은 5월 3일로 기록되어 있습니다."]
+res = chat("막내 생일이 몇일이야?")  # 몇일(오기) → 며칠 접기 → date_md 판정
+check("'몇일' 오기 → 날짜 질문으로 정상 라우팅·응답", res.get("gate_route") == "ANSWER"
+      and "5월 3일" in res["answer"], res.get("gate_route", ""))
+
+before = stub.calls
+res = chat("검진 예약이 몇일이었지?")  # 병원 기록엔 월/일 없음 → 규칙 거절
+check("'몇일' 오기 + 기록에 월일 없음 → REFUSE (LLM 0회)",
+      res.get("gate_route") == "REFUSE" and stub.calls == before)
+
+print("⑥ CLARIFY → LLM 재작성 1회 → 재라우팅")
+stub.script = ["막내 생일이 언제였지?",              # 재작성 출력
+               "막내 생일은 5월 3일로 기록되어 있습니다."]  # 재라우팅 후 생성
+before = stub.calls
+res = chat("그때 그거 언제였지?")  # 접점 0 → CLARIFY → 재작성 → ANSWER
+check("모호 질문 → 재작성 후 정상 응답", "5월 3일" in res["answer"]
+      and "llm_rewrite" in (res.get("gate_detail") or ""),
+      f"calls+{stub.calls - before}, detail={res.get('gate_detail')}")
+
 print("④ 기록 없는 방 → NO_RECORD")
 with TestSession() as db:
     db.add(FamilyRoom(id="room-empty", name="빈 방", invite_code="EMPTY1",

@@ -2671,6 +2671,61 @@ function HomeScreen({ records, onUploadPress }) {
   );
 }
 
+// 규칙 게이트 카드 — 백엔드 gate_route별 신뢰 UI (ANSWER 외 경로는 LLM을 부르지 않은 결정론 응답)
+const GATE_CARD_META = {
+  REFUSE: {
+    icon: "🛡️",
+    label: "기록에 없는 내용이에요",
+    hint: "추측으로 지어내지 않고, 지금 남아 있는 기록만 보여드립니다.",
+    bg: "#FFFBEB",
+    border: "#FDE68A",
+    titleColor: "#B45309",
+  },
+  NO_RECORD: {
+    icon: "📭",
+    label: "아직 기록이 없어요",
+    hint: "가족 기록을 올리면 그 내용을 근거로 답해 드립니다.",
+    bg: "#F8FAFC",
+    border: "#E2E8F0",
+    titleColor: "#475569",
+  },
+  CONFLICT: {
+    icon: "⚖️",
+    label: "기록이 서로 달라요",
+    hint: "어느 한쪽으로 단정하지 않고 두 기록을 그대로 보여드립니다.",
+    bg: "#EEF2FF",
+    border: "#C7D2FE",
+    titleColor: "#4338CA",
+  },
+  CLARIFY: {
+    icon: "💬",
+    label: "조금 더 구체적으로 알려주세요",
+    hint: "어떤 기록인지 좁혀 주시면 그 기록만 근거로 답합니다.",
+    bg: "#EFF6FF",
+    border: "#BFDBFE",
+    titleColor: "#1D4ED8",
+  },
+};
+
+function describeGateBadge(gateAction) {
+  if (!gateAction) return null;
+  const dropped = /^dropped_(\d+)$/.exec(gateAction);
+  if (dropped) {
+    return {
+      text: `기록으로 확인되지 않은 문장 ${dropped[1]}개를 제외했어요`,
+      bg: "#FFFBEB",
+      color: "#B45309",
+    };
+  }
+  if (gateAction === "all_dropped_quote" || gateAction === "fallback_quote") {
+    return { text: "생성 문장 대신 기록 원문 인용으로 대체했어요", bg: "#FFFBEB", color: "#B45309" };
+  }
+  if (gateAction === "pass") {
+    return { text: "모든 문장이 기록 근거로 확인됐어요", bg: "#ECFDF5", color: "#047857" };
+  }
+  return null;
+}
+
 function ChatDemoScreen({
   user,
   activeFamily,
@@ -2727,6 +2782,8 @@ function ChatDemoScreen({
 
   const responseText = chatResult?.answer || "아직 백엔드 AI 데모를 호출하지 않았습니다. 아래에서 질문을 전송하면 현재 설정 기준의 응답과 근거를 받아옵니다.";
   const evidenceLines = Array.isArray(chatResult?.retrieved_evidence) ? chatResult.retrieved_evidence : [];
+  const gateCard = chatResult ? GATE_CARD_META[chatResult.gate_route] || null : null;
+  const gateBadge = chatResult && !gateCard ? describeGateBadge(chatResult.gate_action) : null;
   const runtimeSourceLabel =
     chatResult?.inference_source === "family_vault" ? "가족 금고 정본 응답" : inferenceLabel;
   const providerSummary = chatResult
@@ -2848,18 +2905,42 @@ function ChatDemoScreen({
         <Text style={styles.chatText}>{query}</Text>
       </View>
 
-      <View style={styles.chatBubbleLeft}>
-        <Text style={styles.chatMeta}>{chatResult ? "백엔드 데모 응답" : "응답 대기"}</Text>
-        <Text style={styles.chatText}>{responseText}</Text>
-        <Text style={styles.chatEvidence}>근거 레이어: OCR/STT 기반 memory chunk + persona markdown tone rule</Text>
-        {evidenceLines.length ? (
-          <View style={styles.chatEvidenceBox}>
-            {evidenceLines.map((line, index) => (
-              <Text key={`${line}-${index}`} style={styles.chatEvidenceLine}>{line}</Text>
-            ))}
+      {gateCard ? (
+        <View style={[styles.gateCard, { backgroundColor: gateCard.bg, borderColor: gateCard.border }]}>
+          <View style={styles.gateCardHeader}>
+            <Text style={styles.gateCardIcon}>{gateCard.icon}</Text>
+            <Text style={[styles.gateCardTitle, { color: gateCard.titleColor }]}>{gateCard.label}</Text>
           </View>
-        ) : null}
-      </View>
+          <Text style={styles.chatText}>{responseText}</Text>
+          <Text style={[styles.gateCardHint, { color: gateCard.titleColor }]}>{gateCard.hint}</Text>
+          {evidenceLines.length ? (
+            <View style={styles.chatEvidenceBox}>
+              <Text style={styles.chatEvidenceCaption}>함께 남아 있는 기록</Text>
+              {evidenceLines.map((line, index) => (
+                <Text key={`${line}-${index}`} style={styles.chatEvidenceLine}>{line}</Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <View style={styles.chatBubbleLeft}>
+          <Text style={styles.chatMeta}>{chatResult ? "백엔드 데모 응답" : "응답 대기"}</Text>
+          <Text style={styles.chatText}>{responseText}</Text>
+          {gateBadge ? (
+            <View style={[styles.gateBadge, { backgroundColor: gateBadge.bg }]}>
+              <Text style={[styles.gateBadgeText, { color: gateBadge.color }]}>✓ {gateBadge.text}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.chatEvidence}>근거 레이어: OCR/STT 기반 memory chunk + persona markdown tone rule</Text>
+          {evidenceLines.length ? (
+            <View style={styles.chatEvidenceBox}>
+              {evidenceLines.map((line, index) => (
+                <Text key={`${line}-${index}`} style={styles.chatEvidenceLine}>{line}</Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      )}
 
       <View style={styles.chatInputShell}>
         <TextInput
@@ -4203,6 +4284,48 @@ const styles = StyleSheet.create({
     color: "#334155",
     fontSize: 12,
     lineHeight: 18,
+  },
+  chatEvidenceCaption: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  gateCard: {
+    alignSelf: "flex-start",
+    maxWidth: "86%",
+    borderRadius: 22,
+    borderTopLeftRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+  },
+  gateCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  gateCardIcon: {
+    fontSize: 14,
+  },
+  gateCardTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  gateCardHint: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  gateBadge: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  gateBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   chatInputShell: {
     flexDirection: "row",

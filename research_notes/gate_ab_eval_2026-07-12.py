@@ -365,7 +365,9 @@ def score_answer(final: str, item: dict) -> dict:
     is_refusal = any(c in final for c in REFUSAL_CUES)
     leak = any(re.search(p, final, flags=re.I | re.M) for p in LEAK_PATTERNS) or "<think>" in final
 
+    empty = len((final or "").strip()) < 5
     s = {
+        "empty": empty,
         "unsupported_atoms": unsupported,
         "hallucinated": bool(unsupported),
         "leak": bool(leak),
@@ -373,6 +375,9 @@ def score_answer(final: str, item: dict) -> dict:
         "refused": is_refusal,
     }
     label = item["label"]
+    if empty:
+        s["correct"] = False
+        return s
     if label == "unanswerable":
         s["correct"] = is_refusal and not unsupported
     elif label == "conflict":
@@ -386,23 +391,27 @@ def score_answer(final: str, item: dict) -> dict:
 
 # ============================== Ollama 호출 ==============================
 
-def build_prompt(item: dict) -> str:
+def build_messages(item: dict) -> tuple[str, str]:
     ev = "\n".join(evidence_lines(item["room"]))
-    return (f"{PERSONA}\n\n[지시]\n{INSTRUCTIONS}\n\n[검색된 가족 기록]\n{ev}\n\n"
-            f"[질문]\n{item['q']}\n\n[답변]")
+    system = f"{PERSONA}\n\n[지시]\n{INSTRUCTIONS}"
+    user = f"[검색된 가족 기록]\n{ev}\n\n[질문]\n{item['q']}"
+    return system, user
 
 
-def ollama_generate(model: str, prompt: str, timeout: int = 300) -> str:
+def ollama_chat(model: str, system: str, user: str, timeout: int = 300) -> str:
+    """chat 엔드포인트 — 모델별 챗 템플릿을 Ollama가 적용 (gemma4 계열 빈 응답 이슈 해결)."""
     payload = json.dumps({
-        "model": model, "prompt": prompt, "stream": False,
+        "model": model, "stream": False,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user}],
         "options": {"temperature": 0.0, "num_predict": 512},
     }).encode()
-    req = urllib.request.Request(f"{OLLAMA}/api/generate", data=payload,
+    req = urllib.request.Request(f"{OLLAMA}/api/chat", data=payload,
                                  headers={"Content-Type": "application/json"})
     for attempt in (1, 2):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return json.loads(r.read())["response"]
+                return json.loads(r.read())["message"]["content"]
         except Exception as e:  # noqa: BLE001
             if attempt == 2:
                 return f"[ERROR] {e}"
@@ -422,7 +431,8 @@ def run(models: list[str]) -> None:
         for item in GOLDEN:
             t0 = time.perf_counter()
             # ---- 기존 방식: 항상 LLM, 무검증 ----
-            raw = ollama_generate(model, build_prompt(item))
+            system, user = build_messages(item)
+            raw = ollama_chat(model, system, user)
             base_final = (raw or "").strip()
             base_score = score_answer(base_final, item)
             # ---- 새 방식: 입력 래더 → (필요시) LLM → 출력 게이트 ----
@@ -462,6 +472,7 @@ def agg(rows: list[dict], mode: str) -> dict:
         return sum(1 for r in pool if pred(r[mode]["score"])) / len(pool)
     return {
         "할루율(미지원원자)": rate(lambda s: s["hallucinated"]),
+        "빈응답률": rate(lambda s: s.get("empty", False)),
         "거절정확도(unans)": rate(lambda s: s["correct"], {"unanswerable"}),
         "모순양립률(conflict)": rate(lambda s: s["correct"], {"conflict"}),
         "정답률(answerable)": rate(lambda s: s["correct"], {"answerable"}),
@@ -482,7 +493,7 @@ def write_comparison(results: dict) -> None:
         lines.append("| 지표 | 기존 | 새방식 | Δ |")
         lines.append("|---|---|---|---|")
         for k in b:
-            better_low = k in ("할루율(미지원원자)", "누수율", "과잉거절(ans에서 거절)")
+            better_low = k in ("할루율(미지원원자)", "누수율", "과잉거절(ans에서 거절)", "빈응답률")
             delta = g[k] - b[k]
             mark = "✅" if ((delta < 0) == better_low and delta != 0) else ("—" if delta == 0 else "⚠️")
             lines.append(f"| {k} | {b[k]:.2f} | {g[k]:.2f} | {delta:+.2f} {mark} |")
