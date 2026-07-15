@@ -20,13 +20,28 @@ class Settings(BaseSettings):
     exaone_endpoint_url: str = ""
     ollama_base_url: str = "http://127.0.0.1:11434"
     prefer_ollama_for_gemma: bool = True
+    prefer_ollama_for_exaone: bool = False
     ollama_gemma_e2b_model_name: str = "gemma4:e2b"
     ollama_gemma_e4b_model_name: str = "gemma4:e4b"
+    ollama_gemma_27b_model_name: str = "gemma3:27b"
+    ollama_exaone_model_name: str = "exaone3.5:32b"
+    ollama_exaone_deep_model_name: str = "exaone-deep:32b"
+    ollama_exaone_40_model_name: str = "hf.co/LGAI-EXAONE/EXAONE-4.0-32B-GGUF:Q4_K_M"
+    ollama_exaone_45_model_name: str = "hf.co/LGAI-EXAONE/EXAONE-4.5-33B-GGUF:Q4_K_M"
+    ollama_qwen_32b_tuned_model_name: str = "ambient-legacy-qwen25-32b-v4:latest"
+    ollama_qwen_72b_model_name: str = "qwen2.5:72b"
     ai_provider_timeout_seconds: int = 30
     jwt_secret_key: str = "ambient-legacy-dev-secret"
     jwt_access_token_expires_minutes: int = 60 * 24 * 7
 
-    @field_validator("use_gcs_media_storage", "use_cloud_sql_connector", "private_ip", mode="before")
+    @field_validator(
+        "use_gcs_media_storage",
+        "use_cloud_sql_connector",
+        "private_ip",
+        "prefer_ollama_for_gemma",
+        "prefer_ollama_for_exaone",
+        mode="before",
+    )
     @classmethod
     def normalize_bool_env(cls, value):
         if isinstance(value, bool):

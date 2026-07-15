@@ -91,6 +91,7 @@ def get_runtime_status():
         gemma_endpoint_configured=bool(settings.gemma_endpoint_url),
         exaone_endpoint_configured=bool(settings.exaone_endpoint_url),
         prefer_ollama_for_gemma=settings.prefer_ollama_for_gemma,
+        prefer_ollama_for_exaone=settings.prefer_ollama_for_exaone,
         ollama_base_url=settings.ollama_base_url,
         cloud_sql_connector_enabled=settings.use_cloud_sql_connector,
         gcs_media_storage_enabled=settings.use_gcs_media_storage,

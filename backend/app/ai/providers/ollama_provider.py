@@ -1,4 +1,5 @@
 import json
+import socket
 from urllib import error, request
 
 from app.ai.providers.base import InferenceRequest, InferenceResponse
@@ -15,9 +16,10 @@ class OllamaProvider:
     def build_payload(self, inference_request: InferenceRequest) -> dict:
         prompt_package = inference_request.prompt_package
         runtime_model_name = self.model_aliases.get(inference_request.model_id, inference_request.model_id)
-        return {
+        payload = {
             "model": runtime_model_name,
             "stream": False,
+            "keep_alive": "30m",
             "messages": [
                 {
                     "role": "system",
@@ -33,6 +35,10 @@ class OllamaProvider:
                 },
             ],
         }
+        if inference_request.model_id == "exaone-45-33b-dgx":
+            payload["think"] = False
+            payload["options"] = {"num_predict": 512}
+        return payload
 
     def generate(self, inference_request: InferenceRequest) -> InferenceResponse:
         payload = json.dumps(self.build_payload(inference_request)).encode("utf-8")
@@ -46,7 +52,7 @@ class OllamaProvider:
         try:
             with request.urlopen(req, timeout=self.timeout_seconds) as response:
                 body = json.loads(response.read().decode("utf-8"))
-        except error.URLError as exc:
+        except (error.URLError, TimeoutError, socket.timeout) as exc:
             return InferenceResponse(
                 provider=self.provider_name,
                 model_id=inference_request.model_id,
