@@ -1,0 +1,37 @@
+{
+  "models": [
+    {
+      "id": "gemma-3n-e2b-device",
+      "display_name": "Gemma 3n E2B",
+      "runtime": "android_ai_edge",
+      "placement": "device",
+      "modalities": ["text", "image", "audio"],
+      "supports_rag": true,
+      "supports_persona_markdown": true,
+      "notes": "Primary choice for on-device personal inference.",
+      "recommended_roles": ["quick_chat", "private_recall", "offline_mode"]
+    },
+    {
+      "id": "gemma-3n-e4b-device",
+      "display_name": "Gemma 3n E4B",
+      "runtime": "android_ai_edge",
+      "placement": "device",
+      "modalities": ["text", "image", "audio"],
+      "supports_rag": true,
+      "supports_persona_markdown": true,
+      "notes": "Higher quality but heavier on mobile hardware.",
+      "recommended_roles": ["enhanced_private_recall", "multimodal_summary"]
+    },
+    {
+      "id": "exaone-family-vault",
+      "display_name": "EXAONE Family Vault",
+      "runtime": "local_server",
+      "placement": "family_vault",
+      "modalities": ["text"],
+      "supports_rag": true,
+      "supports_persona_markdown": true,
+      "notes": "Recommended for authoritative family-vault answers.",
+      "recommended_roles": ["canonical_answer", "family_archive_search"]
+    }
+  ]
+}

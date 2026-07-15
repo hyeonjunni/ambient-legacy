@@ -1,0 +1,32 @@
+[
+  {
+    "chunk_id": "mem-001",
+    "source_type": "image_ocr",
+    "source_asset_id": "img-2024-001",
+    "timestamp": "2024-12-28T18:30:00",
+    "text": "2024 가족 송년회",
+    "tags": ["가족", "송년회", "현수막"],
+    "confidence": 0.87,
+    "authority": "high"
+  },
+  {
+    "chunk_id": "mem-002",
+    "source_type": "photo_caption",
+    "source_asset_id": "img-2019-014",
+    "timestamp": "2019-08-03T16:20:00",
+    "text": "광안리 바다 앞에서 가족사진을 찍음. 아버지가 바람이 시원하다고 말했다.",
+    "tags": ["부산", "광안리", "가족사진"],
+    "confidence": 0.92,
+    "authority": "high"
+  },
+  {
+    "chunk_id": "mem-003",
+    "source_type": "video_ocr",
+    "source_asset_id": "video-2024-002",
+    "timestamp": "2024-12-28T19:02:00",
+    "text": "건강하게 오래 봅시다",
+    "tags": ["건배사", "송년회"],
+    "confidence": 0.75,
+    "authority": "medium"
+  }
+]
