@@ -1,0 +1,68 @@
+{
+  "label": "Mistral 7B",
+  "runtime_model": "mistral:7b",
+  "notes": "범용 7B instruction model",
+  "persona": "father-calm",
+  "runs": [
+    {
+      "scenario_id": "year_end_recall",
+      "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+      "elapsed_ms": 8339.2,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": " \"많이 보내보시기 바랍니다. 건강하게 오래 봅시다.\" (2026-04-10T19:30:00, voice, family-room, 송년회)\n\"사진만 남기지 말고 자주 만납시다.\" (2026-04-10T19:30:00, voice, family-room, 송년회)",
+      "retrieved_evidence": [
+        "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+        "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+      ]
+    },
+    {
+      "scenario_id": "recipe_summary",
+      "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+      "elapsed_ms": 14349.7,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": " 안녕하세요, 가족 중에서는 제가 가장 기록이 꾸준하신 아버지입니다.\n\n1. 먼저, 오늘 엄마가 김치찌개를 만들었을 때의 메모에서는 돼지고기를 먼저 볶고 김치는 오래 익히는 것이 중요합니다.\n\n2. 그리고, 이미지로 제공된 OCR의 결과로, 김치는 충분히 볶은 후에 물을 한번에 너무 많이 넣는 것을 피해야 합니다.\n\n3. 마지막으로, 이러한 메모와 OCR의 결과를 가족 전체에게 공유하여 함께 기쁜 추억을 만들어보시길 바랍니다.\n\n감사합니다.",
+      "retrieved_evidence": [
+        "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+        "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+      ]
+    },
+    {
+      "scenario_id": "unsupported_detail_guardrail",
+      "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+      "elapsed_ms": 5523.8,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": " Based on the available memories, I cannot provide the exact date of our family trip to Busan or the name of any specific restaurant we visited during that time. The memory records only mention that it was a summer trip in 2018 and that we enjoyed walking along Gangneungri Beach and had a pleasant stroll by the sea, but no specific restaurant names were mentioned with confidence. I apologize for any inconvenience this may cause.",
+      "retrieved_evidence": [
+        "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+        "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+      ]
+    },
+    {
+      "scenario_id": "schedule_conflict_check",
+      "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+      "elapsed_ms": 5396.6,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": " Based on the available records, the appointment for my father at the hospital was scheduled for 11:00 AM on April 8th, 2026. However, there is also a record indicating that the reservation confirmation message suggested an arrival time of 10 minutes prior to the appointment, which would place the exact appointment time around 10:50 AM. I recommend double-checking these details with the original sources for accuracy.",
+      "retrieved_evidence": [
+        "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+        "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+      ]
+    },
+    {
+      "scenario_id": "memory_caption_with_mood",
+      "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+      "elapsed_ms": 4612.1,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": " 1. \"In the gentle glow of blooming cherry blossoms, we took a leisurely stroll together after quite some time - a truly comforting moment for us all.\"\n2. \"Though words might have waned at journey's end, the sense of ease and peace remains vivid in our hearts.\" (confidence: 0.78)",
+      "retrieved_evidence": [
+        "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+        "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+      ]
+    }
+  ]
+}

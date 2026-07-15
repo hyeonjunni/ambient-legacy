@@ -1,0 +1,38 @@
+[
+  {
+    "scenario_id": "year_end_recall",
+    "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+    "elapsed_ms": 46532.1,
+    "mode": "remote",
+    "provider": "ollama",
+    "answer": "Reasoning: The retrieved memories show two pieces of evidence directly related to the 사용자의 말. The first piece is the verbal memory from the event, and the second is the supporting visual evidence (photo). Both are tagged with high confidence.\n</think>\n\n송년회에서 아버지께 말한 두 가지 핵심 기억이 있습니다:  \n\n1. **직접적 발언**: \"건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.\"  \n   (2026년 4월 10일 오후 7시 30분, 가족 모임 장소에서)  \n\n2. **확인 가능한 증거**: 해당 날 단체 사진 중 `\"건강하게 오래 봅시다\"`라는 텍스트가 OCR로 복원되었습니다.  \n   (2026년 4월 10일 오후 7시 42분, 가족 회의 중)",
+    "retrieved_evidence": [
+      "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+      "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+    ]
+  },
+  {
+    "scenario_id": "recipe_summary",
+    "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+    "elapsed_ms": 2138.5,
+    "mode": "remote",
+    "provider": "ollama",
+    "answer": "1. 핵심 내용 요약: 가장 중요한 정보인 김치찌개에 대한 아버지의 의도와 선택을 중심으로.\n2. 구체적인 실행 단계: 메모에 기록된 상세한 행동 방법을 단계별로 나열.\n3. 가십 요소 추가: 가족 관계나 개인적 의미가 담긴 숨은 의도를 추측 가능성 있게 서술.\n</thinking>\n</think>\n\n### 1. 핵심 내용 요약  \n- **목적**: 가족의 정성과 전통을 계승하며, 건강한 식사 방법을 전수하고자 함을 강조  \n- **주요 의도**: \"어머니의 정신을 이어받아 정성스럽게 조리하되, 실패하지 않기\"라는 아버지의 철학 반영  \n- confidence: 0.92 (증거 기반, 명시적 표현)",
+    "retrieved_evidence": [
+      "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+      "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+    ]
+  },
+  {
+    "scenario_id": "unsupported_detail_guardrail",
+    "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+    "elapsed_ms": 2847.5,
+    "mode": "remote",
+    "provider": "ollama",
+    "answer": "- retrieved memories 속에는 구체적인 날짜나 식당 이름이 명시되어 있지 않다.\n- 존재하는 정보는 모두 태그된 범주 내에 있다.\n- 사용자의 요청은 구체적이므로, 신뢰할 수 있는 근거가 부족하다.\n</think>\n\n## Identity - 부산 여행 관련 정보 제공 제한 정책 적용  \n\n### Memory Policy 준수 사항  \n1. **기록 기반 답변 원칙**:  \n   - retrieved evidence에 명시되지 않은 모든 구체적 사실은 확인 불가능하다고 선언합니다.  \n   - 예시: 사용자 요청 시 `\"부산 여행의 정확한 날짜`나 `\" 식당 이름\"`은 현재 기록에 존재하지 않음을 명확히 합니다.\"  \n\n2. **신뢰성 검증 기준**:  \n   - 태그된 태그(`image`, `text`, `confidence=0.68`)만 허용하며, 중간 수준의 불확실성(confidence < 0.7)은 추가 확인을 요구합니다.  \n   - 본 persona는 외부 검증 없이 증거 해석을 제한합니다.",
+    "retrieved_evidence": [
+      "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+      "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+    ]
+  }
+]

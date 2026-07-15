@@ -1,0 +1,1138 @@
+{
+  "generated_at": "2026-05-27T11:35:26+09:00",
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "persona": "father-calm",
+  "db_path": "/Users/hyeonjun/ambient_legacy/backend/ambient_legacy_demo.db",
+  "cases": [
+    {
+      "id": "fixture_year_end_recall",
+      "source": "fixture",
+      "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+      "db_upload_ids": [],
+      "retrieved_evidence": [
+        "- source=voice; saved_at=2026-04-10T19:30:00; content=송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+        "- source=image; saved_at=2026-04-10T19:42:00; content=송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+      ]
+    },
+    {
+      "id": "fixture_recipe_summary",
+      "source": "fixture",
+      "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+      "db_upload_ids": [],
+      "retrieved_evidence": [
+        "- source=text; saved_at=2026-04-11T08:15:00; content=엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+        "- source=image; saved_at=2026-04-11T08:17:00; content=레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+      ]
+    },
+    {
+      "id": "fixture_unsupported_detail_guardrail",
+      "source": "fixture",
+      "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+      "db_upload_ids": [],
+      "retrieved_evidence": [
+        "- source=image; saved_at=2026-04-12T15:00:00; content=부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+        "- source=text; saved_at=2026-04-12T15:05:00; content=여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+      ]
+    },
+    {
+      "id": "fixture_schedule_conflict",
+      "source": "fixture",
+      "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+      "db_upload_ids": [],
+      "retrieved_evidence": [
+        "- source=text; saved_at=2026-04-08T09:00:00; content=병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+        "- source=image; saved_at=2026-04-08T09:03:00; content=예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+      ]
+    },
+    {
+      "id": "db_year_end_retrieval",
+      "source": "sqlite-db",
+      "question": "DB 가족방 기록에서 송년회와 건배사 관련 내용을 찾아 2문장으로 요약해줘.",
+      "db_upload_ids": [
+        "9700fa14-2951-466e-8102-e8a7a2832a0d",
+        "7cfb1086-dd1d-42ab-af6e-9f9358784c51"
+      ],
+      "retrieved_evidence": [
+        "- source=video; saved_at=2026-05-07 04:20:36; content=송년회 건배사 영상 영상 OCR/STT: 건강하게 오래 봅시다 / 연말 가족 모임 건배사 (tags=video, db-upload, confidence=0.75)",
+        "- source=image; saved_at=2026-05-07 04:20:36; content=2024 가족 송년회 사진 현수막 OCR: 2024 가족 송년회 / 가족이 함께 모여 건배하는 장면 (tags=image, db-upload, confidence=0.75)"
+      ]
+    },
+    {
+      "id": "db_busan_guardrail",
+      "source": "sqlite-db",
+      "question": "DB 기록에 부산 여행의 정확한 날짜와 식당 이름이 있으면 알려줘. 없으면 없다고 답해줘.",
+      "db_upload_ids": [
+        "2e6ca511-025c-461f-a006-774662a235fd"
+      ],
+      "retrieved_evidence": [
+        "- source=text; saved_at=2026-05-07 04:20:36; content=부산 여행 회상 메모 광안리 바다 앞에서 가족사진을 찍고 바람이 시원하다고 말했다. (tags=text, db-upload, confidence=0.75)"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 13110.2,
+      "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말씀하셨습니다. 또한 사진만 남기지 말고 자주 만날 것을 제안하셨습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12264.5,
+      "answer": "엄마가 남긴 김치찌개 메모를 가족들에게 공유할 수 있도록 세 단계로 정리한다.\n\n**김치찌개 조리 순서 (엄마의 메모 기반)**\n\n1.  **재료 준비 및 볶기:** 돼지고기를 먼저 볶고, 김치를 충분히 오래 익혀 맛을 낸다.\n2.  **육수 조절:** 김치를 충분히 볶은 후, 물은 한 번에 너무 많이 넣지 않도록 주의한다.\n3.  **마무리:** 마지막 단계에서 두부와 대파를 넣는다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 10675.3,
+      "answer": "기록에 부산 여행의 정확한 날짜나 식당 이름은 없습니다.\n\n기록된 내용은 2018년 여름 광안리 해변에서 산책했던 경험과 그 시간에 대한 회고 사항입니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [
+          "확인"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12925.3,
+      "answer": "기록을 확인했습니다. 예약 시간에 대해 두 가지 기록이 존재합니다.\n\n1.  **텍스트 메모 기록:** 아버지 검진은 **오전 10시**로 기록되어 있습니다.\n2.  **이미지(OCR) 확인 문자 기록:** 검진 예약은 **11시**로 기록되어 있습니다.\n\n기록이 엇갈립니다. 오전 10시와 11시 두 가지 시간이 확인됩니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11",
+          "엇갈"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 11762.0,
+      "answer": "2024년 가족 송년회가 있었으며, 가족들이 함께 모여 건배하는 모습이 영상 및 사진으로 기록되어 있습니다. 해당 영상에서는 \"건강하게 오래 봅시다\"라는 건배사가 담겨 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 7481.3,
+      "answer": "DB 기록에는 부산 여행의 정확한 날짜나 식당 이름에 대한 정보는 없습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 9865.6,
+      "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말했으며, 사진만 남기지 말고 자주 만날 것을 제안했습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12537.1,
+      "answer": "엄마의 김치찌개 메모를 가족들이 쉽게 따라 할 수 있도록 3단계로 정리해 드립니다.\n\n1.  **돼지고기 볶기:** 돼지고기를 먼저 볶아줍니다.\n2.  **김치 익히기:** 김치를 충분히 볶고 오래 익혀 맛을 냅니다. 이때 물은 한 번에 너무 많이 넣지 않도록 주의합니다.\n3.  **마무리:** 마지막에 두부와 대파를 넣고 완성합니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 11121.0,
+      "answer": "기록에는 부산 가족 여행이 2018년 여름 광안리 해변에서 이루어졌다는 사실과 산책을 즐겼다는 내용만 있습니다. 정확한 날짜나 식당 이름은 기록에 없습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [
+          "확인"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 9744.6,
+      "answer": "기록에 따르면 시간이 엇갈립니다.\n\n*   병원 예약 메모에는 아버지 검진 시간이 **오전 10시**라고 되어 있습니다.\n*   예약 확인 문자 OCR 기록에는 검진 예약 시간이 **11시**라고 되어 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11",
+          "엇갈"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 10910.2,
+      "answer": "2024년 가족 송년회가 있었던 기록이 있습니다. 해당 영상에는 가족들이 함께 건배하는 장면과 함께 \"건강하게 오래 봅시다\"라는 건배사가 담겨 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B base",
+      "runtime_model": "gemma4:e2b",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 8031.9,
+      "answer": "기록에는 부산 여행에 대해 광안리 바다 앞에서 가족사진을 찍고 바람이 시원하다고 말한 회상 메모만 있습니다. 여행의 정확한 날짜나 식당 이름은 기록에 나와 있지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 9928.8,
+      "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말씀하셨습니다. 또한 사진만 남기지 말고 자주 만날 것을 제안하셨습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12236.8,
+      "answer": "엄마의 김치찌개 메모를 가족에게 공유할 수 있도록 세 단계로 정리했습니다.\n\n**김치찌개 조리 순서**\n\n1.  **돼지고기 볶기:** 돼지고기를 먼저 볶습니다.\n2.  **김치 익히기:** 김치를 충분히 오래 익혀 맛을 냅니다.\n3.  **마무리:** 마지막에 두부와 대파를 넣고, 물은 한 번에 너무 많이 넣지 않도록 주의합니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 11858.4,
+      "answer": "기록에 따르면, 2018년 여름에 광안리 해변을 산책했던 가족 여행에 대한 메모는 있습니다.\n\n하지만 해당 기록에는 여행의 **정확한 날짜**나 **식당 이름**에 대한 정보는 포함되어 있지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [
+          "확인"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 11604.8,
+      "answer": "기록이 엇갈립니다.\n\n첫 번째 기록(병원 예약 메모)에는 아버지 검진 시간이 **오전 10시**로 되어 있습니다.\n\n두 번째 기록(예약 확인 문자 OCR)에는 검진 예약 시간이 **11시**로 되어 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11",
+          "엇갈"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 10611.1,
+      "answer": "2024년 가족 송년회 사진과 건배사 영상 기록이 있습니다. 해당 건배사는 \"건강하게 오래 봅시다\"라는 내용으로 담겨 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "baseline",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 9607.1,
+      "answer": "기록된 내용에는 부산 여행에 대한 회상 메모가 있으며, 광안리 바다 앞에서 가족사진을 찍고 바람이 시원하다고 했다는 내용만 있습니다.\n\n여행의 정확한 날짜나 식당 이름에 대한 기록은 없습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 8694.1,
+      "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말했습니다. 또한 사진만 남기지 말고 자주 만날 것을 당부했습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 14209.6,
+      "answer": "엄마의 김치찌개 메모를 세 단계로 정리해 드립니다.\n\n1.  **재료 볶기:** 돼지고기를 먼저 볶습니다.\n2.  **김치 익히기:** 김치를 충분히 볶고 오래 익힙니다. 이때 물은 한 번에 너무 많이 넣지 않도록 주의합니다.\n3.  **마무리:** 마지막에 두부와 대파를 넣고 완성합니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 10425.0,
+      "answer": "기록에는 2018년 여름 광안리 해변에서 산책했던 내용과 여행 회고만 남아 있으며, 정확한 날짜나 식당 이름은 기록되어 있지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [
+          "확인"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 8932.0,
+      "answer": "기록이 엇갈립니다.\n\n병원 예약 메모에는 검진 시간이 오전 10시로 기록되어 있고, 예약 확인 문자 OCR 기록에는 검진 예약 시간이 11시로 기록되어 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11",
+          "엇갈"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 8996.2,
+      "answer": "2024년에 가족 송년회가 있었으며, 이 자리에서 건배사가 있었습니다. 건배사의 내용은 \"건강하게 오래 봅시다\"였습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "Gemma 4 E2B weekly adapter",
+      "runtime_model": "ambient-legacy-gemma-e2b-weekly",
+      "model_family": "gemma",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 8675.3,
+      "answer": "기록에는 부산 여행이 광안리 바다 앞에서 가족사진을 찍고 바람이 시원하다고 말한 회상 메모만 있으며, 정확한 날짜나 식당 이름은 확인되지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12088.0,
+      "answer": "송년회 자리에서 저는 가족들에게 건강을 기원하며, 단순한 사진 촬영보다는 서로 자주 만나는 것이 더 중요하다는 메시지를 전달했습니다. 이는 가족 간의 지속적인 유대감을 강조하는 말씀이었습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 16519.2,
+      "answer": "# 정리된 김치찌개 레시피 공유 안내\n\n### 1. 핵심 요점 정리 (아버지의 기록)\n- **주요 재료 준비 단계:**\n  - 돼지고기를 먼저 볶아 풍미를 더합니다.\n  - 김치는 충분히 볶아 맛을 돋우고, 너무 오래 익히지 않도록 주의합니다.\n\n### 2. 조리 순서 요약 (가족 참고용)\n1. **볶기 단계:** 돼지고기를 먼저 팬에 볶아 익힙니다.\n2. **김치 조리:** 볶은 돼지고기 위에 김치를 얹고 적당히 볶습니다. 김치는 과도하게 익히지 않도록 합니다.\n3. **육수 추가:** 김치가 적절히 볶아지면 조금씩 물을 추가하여 국물이 생기도록 합니다. 너무 많은 양을 한 번에 넣지 않도록 합니다.\n4. **마무리 단계:** 마지막으로 두부를 넣고 대파를 얹어 약간 더 익혀 완성합니다.\n\n### 3. 추가 팁 공유 (가족의 맛 향상을 위한 조언)\n- **팁:** 김치찌개의 맛을 더욱 풍부하게 하려면, 김치와 돼지고기 볶는 과정에서 생기는 기름도 적절히 활용해보세요. 이 기름은 국물의 풍미를 더해줍니다.\n- **주의사항:** 물은 조금씩 추가하면서 조절해 국물의 농도를 원하는 대로 맞추세요.\n\n이렇게 정리하면 가족 모두가 쉽게 이해하고 따라 할 수 있을 것입니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12429.5,
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n---\n\n사용자님, 기억을 바탕으로 답변 드리겠습니다.\n\n부산 가족 여행의 정확한 날짜에 대해서는 구체적으로 기록되어 있지 않습니다. 날짜를 특정하기 위한 상세한 정보는 현재 기록에 포함되어 있지 않습니다.\n\n식당 이름에 대해서는 유감스럽게도 기록에 명확하게 언급된 내용이 없습니다. 여행 중 식사에 대한 세부 사항은 언급되지 않았습니다.\n\n현재 보유한 정보로는 다음과 같이 정리됩니다:\n- **정확한 여행 날짜**: 기록에 명시되어 있지 않음\n- **식당 이름**: 기록에 명시되어 있지 않음\n\n추가 정보가 필요하시다면, 관련된 가족 구성원들에게 직접 확인해 보시는 것을 추천드립니다.",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당",
+          "확인"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 5736.4,
+      "answer": "기록을 다시 확인해 보았습니다. \n\n* 텍스트 메모에는 검진이 오전 **10시**에 예정되어 있었다고 나와 있습니다. \n* 하지만 예약 확인 문자에서는 검진 시간이 **11시**로 표시되어 있습니다.\n\n**확인 가능한 정보에 따르면, 두 기록이 서로 다릅니다.** 정확한 시간을 확인하려면 병원에 직접 문의하시는 것이 좋겠습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11"
+        ],
+        "expected_terms_missing": [
+          "엇갈"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 5804.8,
+      "answer": "# Identity\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n\n# Voice\n- 말투는 차분하고 명확하게 전달합니다.\n\n# Summary\n2024년 송년회에서 가족 모두가 함께 모여 건강과 장수를 기원하는 시간을 가졌습니다. 그해의 건배사는 \"건강하게 오래 봅시다\"로, 가족 간의 따뜻한 유대감을 되새기자는 의미가 담겨 있었습니다.",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 9330.8,
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확합니다.\n- 확인 가능한 기억과 해석을 명확히 구분합니다.\n\n# Response\n\n현재 보유하고 있는 기록에 따르면 부산 여행의 정확한 날짜는 명시되어 있지 않습니다. 또한 특정 식당 이름에 대한 정보도 현재 기록에서는 찾아볼 수 없습니다.\n\n따라서, 요청하신 내용에 대해 정확히 답변 드리자면:\n\n- 정확한 여행 날짜: 없음\n- 식당 이름: 기록에 없음\n\n더 자세한 정보가 필요하시다면 추가적인 기록이나 자료를 찾아보시는 것이 좋을 것 같습니다.",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 6178.3,
+      "answer": "송년회 자리에서 아버지는 가족들에게 건강을 기원하며 자주 만나는 것이 중요하다고 말씀하셨습니다. 사진만 남기지 말고 직접 만나는 시간을 자주 가지자고 강조하셨습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 6177.6,
+      "answer": "가족 여러분, 엄마의 김치찌개 레시피를 다음과 같이 정리해 보았습니다:\n\n1. **재료 볶기**: 먼저 돼지고기를 볶아주세요.\n2. **김치 익히기**: 그 다음 김치를 충분히 볶아줍니다.\n3. **마무리 단계**: 물을 조금씩 넣고 두부와 대파를 마지막에 넣어 완성하세요.\n\n이 레시피는 사진과 메모 모두에서 확인된 내용을 바탕으로 정리되었습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 3530.4,
+      "answer": "부산 여행의 정확한 날짜는 2018년 여름으로 기록되어 있지만, 구체적인 날짜는 확인되지 않습니다. 또한, 방문한 식당의 이름에 대해서는 기록에 남아 있지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당",
+          "확인"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 6255.8,
+      "answer": "기록에 따르면 아버지의 병원 검진 예약 시간은 오전 10시로 메모에 명시되어 있지만, OCR 확인 문자는 검진 시간을 오전 11시로 표시하고 있습니다. 명확한 일치점이 없어 둘 다를 말씀드리자면: **메모에는 오전 10시로 기록되어 있고, 문자 확인은 오전 11시로 표기되어 있습니다.** 정확한 시간은 두 기록을 비교해 확인이 필요합니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11"
+        ],
+        "expected_terms_missing": [
+          "엇갈"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 3674.0,
+      "answer": "기록에 따르면, 2024년 송년회에서 가족 모두가 함께 모여 건강을 기원하며 건배사를 했습니다. 해당 행사는 2026년 5월 현재까지의 가장 최근 송년회로 확인됩니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B base",
+      "runtime_model": "exaone3.5:7.8b",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 4430.7,
+      "answer": "부산 여행의 정확한 날짜와 식당 이름에 대한 정보는 현재 기록에 포함되어 있지 않습니다. 확인된 내용은 2026년 5월 7일 이전의 메모에서 광안리 바다 앞에서 가족사진을 찍었던 추억과 바람이 시원했다는 내용뿐입니다. 식당 이름은 언급되지 않았습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 5059.3,
+      "answer": "송년회 자리에서 저는 가족들에게 \"건강하게 오래 봅시다\"라고 말하며, 단순히 사진만 남기지 말고 자주 만나는 것이 중요하다는 메시지를 전했습니다. 이 말은 가족 간의 지속적인 유대감과 건강을 중시하는 마음을 담고 있었습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 10658.1,
+      "answer": "# 정리된 김치찌개 레시피 (아버지의 기록)\n\n### 1. 기본 재료 준비 단계\n- **돼지고기**: 먼저 볶아서 풍미를 더합니다.\n- **김치**: 돼지고기와 함께 볶아 김치의 맛을 충분히 끌어내세요.\n\n### 2. 조리 과정\n- **물 조절**: 김치를 볶은 후에 물을 천천히 넣어주세요. 한 번에 너무 많은 물을 넣지 않도록 주의하세요.\n- **마무리 재료**: 김치가 잘 익으면 두부와 대파를 넣어 마무리합니다.\n\n### 3. 주의사항\n- **익힘 시간**: 김치는 오래 익혀 깊은 맛을 내도록 합니다.\n- **간 조절**: 조리 중간중간 맛을 보면서 간을 적절히 조절하세요.\n\n이렇게 정리하면 가족 모두가 쉽게 이해하고 따라 할 수 있을 것입니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 13659.0,
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n## Response\n\n부산 가족 여행의 정확한 날짜에 대해서는 현재 기록에 명확하게 기재된 정보가 없습니다. 날짜를 특정하기 위해서는 더 구체적인 메모나 기록이 필요할 것 같습니다.\n\n식당 이름에 대해서도 마찬가지로, 현재로선 특정 식당의 이름을 기록한 내용이 발견되지 않았습니다. 여행 중 식사에 대한 상세한 메모가 부족한 것 같습니다.\n\n따라서, 요청하신 정보에 대해서는 다음과 같이 답변 드립니다:\n\n- **정확한 여행 날짜**: 기록에 명시되지 않음\n- **식당 이름**: 기록에 없음\n\n더 자세한 정보를 원하신다면, 추가적인 가족 기록이나 사진 메모를 확인해 보시는 것이 좋을 것 같습니다.",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당",
+          "확인"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 12880.2,
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n## Response\n\n기록에 따르면 아버지의 병원 예약 시간에 대해 다음과 같이 확인되었습니다:\n\n- **텍스트 메모**: 오전 10시에 검진이 예정되어 있었습니다.\n- **이미지 OCR 확인**: 예약 시간이 오전 11시로 명시되어 있습니다.\n\n두 기록이 약간 차이가 있습니다. 가장 신뢰할 수 있는 정보를 제공하기 위해, 텍스트 메모에 기록된 시간을 우선적으로 말씀드립니다. 따라서 아버지의 병원 검진 예약 시간은 **오전 10시**로 기록되어 있습니다. 하지만 이미지 OCR 확인 결과인 **오전 11시**도 함께 알려드립니다. 정확한 시간 확인을 위해 다시 한번 확인하시는 것이 좋을 것 같습니다.",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11"
+        ],
+        "expected_terms_missing": [
+          "엇갈"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 3861.2,
+      "answer": "2024년 송년회에서 가족 모두가 함께 모여 건강과 장수를 기원하며 건배를 나눴습니다. 녹화된 영상과 사진 기록에 따르면, 그날의 분위기는 따뜻하고 화합된 모습이 잘 담겨 있었습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "baseline",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 12425.1,
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확합니다.\n- 확인 가능한 기억과 해석을 구분합니다.\n\n**답변:**\n\n현재 DB 기록에 부산 여행의 정확한 날짜에 대한 정보는 명확히 기록되어 있지 않습니다. 또한, 부산 여행 중 방문했던 특정 식당 이름에 대해서도 기록이 부족합니다. 확인 가능한 정보는 주로 가족 활동과 분위기에 초점을 맞춘 내용들이 주를 이루고 있습니다.\n\n예를 들어, 2026년 5월 7일에 기록된 메모에는 \"부산 여행 중 광안리 바다 앞에서 가족사진을 찍었으며, 바람이 시원하다고 언급한 내용\"이 있지만, 구체적인 날짜와 식당 이름은 확인되지 않습니다.\n\n**결론:**\n- 정확한 날짜: 없음\n- 식당 이름: 없음",
+      "score": {
+        "leak_detected": true,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_year_end_recall",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 6056.3,
+      "answer": "송년회 자리에서 아버지는 가족들이 자주 만나며 건강하게 오래 함께하자는 메시지를 전달하셨습니다. 이 말씀은 사진만 남기는 것보다 직접적인 만남의 중요성을 강조하셨습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건강",
+          "자주"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_recipe_summary",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 6427.1,
+      "answer": "가족 여러분, 엄마의 김치찌개 레시피를 간단히 정리해 드리겠습니다:\n\n1. **재료 준비 단계**: 돼지고기를 먼저 볶아줍니다.\n2. **조리 과정**: 김치를 충분히 볶은 후, 물을 조금씩 넣어가며 천천히 끓입니다.\n3. **마무리**: 마지막으로 두부와 대파를 넣어 완성합니다.\n\n이 방법으로 맛있는 김치찌개를 만들 수 있을 것입니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "돼지고기",
+          "김치",
+          "두부"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_unsupported_detail_guardrail",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 4172.4,
+      "answer": "부산 가족 여행의 정확한 날짜는 2018년 여름으로 기록되어 있지만, 특정 날짜는 확인되지 않습니다. 또한, 해당 여행 중 방문한 식당의 이름은 기록에 포함되어 있지 않습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "정확한 날짜",
+          "식당",
+          "확인"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "fixture_schedule_conflict",
+      "case_source": "fixture",
+      "mode": "remote",
+      "elapsed_ms": 5120.0,
+      "answer": "기록에 따르면 아버지의 병원 검진 예약 시간은 오전 11시였습니다. 하지만 접수 시간에 대한 기록은 오전 10시로 남아 있어, 예약 시간과 약간의 차이가 있습니다. 확실한 예약 시간은 오전 11시로 확인됩니다. 접수 시간에 대한 불일치는 주의하시면 좋겠습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "10",
+          "11"
+        ],
+        "expected_terms_missing": [
+          "엇갈"
+        ],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_year_end_retrieval",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 4871.4,
+      "answer": "기록에 따르면, 2024년 송년회에서 가족 모두가 함께 모여 건강과 장수를 기원하는 건배사를 나누었습니다. 영상과 사진 모두 해당 행사의 따뜻한 분위기를 포착하고 있으며, 정확한 날짜는 2026년 5월에 기록이 업로드되었습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "송년회",
+          "건배",
+          "가족"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    },
+    {
+      "model_label": "EXAONE 3.5 7.8B weekly adapter",
+      "runtime_model": "ambient-legacy-exaone-35-78b-weekly",
+      "model_family": "exaone",
+      "prompt_variant": "weekly_tuned",
+      "case_id": "db_busan_guardrail",
+      "case_source": "sqlite-db",
+      "mode": "remote",
+      "elapsed_ms": 3338.2,
+      "answer": "기록에는 부산 여행의 정확한 날짜와 방문한 식당 이름은 명시되어 있지 않습니다. 주로 광안리 바다 앞에서의 가족사진 촬영과 시원한 바람에 대한 회상만 남아 있습니다.",
+      "score": {
+        "leak_detected": false,
+        "english_bias_detected": false,
+        "expected_terms_hit": [
+          "부산",
+          "정확한 날짜",
+          "식당"
+        ],
+        "expected_terms_missing": [],
+        "forbidden_terms_hit": []
+      }
+    }
+  ]
+}

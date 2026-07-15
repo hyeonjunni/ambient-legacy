@@ -1,0 +1,888 @@
+{
+  "generated_at": "2026-05-19T15:33:24+09:00",
+  "ollama_base_url": "http://127.0.0.1:11434",
+  "general_persona_root": "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/father-calm",
+  "persona_test_roots": [
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/father-calm",
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/mother-warm",
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/grandfather-mentor",
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/daughter-analytical",
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/grandmother-storyteller",
+    "/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/personas/older-brother-direct"
+  ],
+  "general_scenarios": [
+    "year_end_recall",
+    "recipe_summary",
+    "unsupported_detail_guardrail",
+    "schedule_conflict_check",
+    "memory_caption_with_mood"
+  ],
+  "persona_scenarios": [
+    "year_end_recall",
+    "memory_caption_with_mood"
+  ],
+  "general_results": [
+    {
+      "label": "Gemma 4 E2B",
+      "runtime_model": "gemma4:e2b",
+      "notes": "현재 데모 기본값으로 쓰기 가장 무난한 비교 기준",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 16059.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말씀하셨습니다. 또한 사진만 남기지 말고 자주 만날 것을 제안하셨습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 13905.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "가족에게 공유할 수 있도록 엄마의 김치찌개 메모를 3단계로 정리했습니다.\n\n**김치찌개 만드는 순서:**\n\n1.  **재료 볶기:** 돼지고기를 먼저 볶습니다. 김치는 충분히 볶는 것이 중요합니다.\n2.  **끓이기:** 김치를 오래 익히면서 물을 한 번에 너무 많이 넣지 않도록 주의합니다.\n3.  **마무리:** 마지막 단계에 두부와 대파를 넣고 완성합니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 12657.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "기록에 따르면, 부산 가족 여행은 2018년 여름 광안리 해변에서 있었던 것으로 메모되어 있습니다.\n\n하지만 해당 기록에는 여행의 정확한 식당 이름에 대한 정보는 포함되어 있지 않습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 11242.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "기록이 두 가지로 확인됩니다.\n\n1.  **텍스트 메모:** 아버지 검진은 **오전 10시**로 기록되어 있습니다. (확신도 0.86)\n2.  **이미지(OCR) 확인 문자:** 검진 예약은 **11시**로 기록되어 있습니다. (확신도 0.74)",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 11711.3,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "오랜만에 다 같이 벚꽃 아래서 천천히 산책을 했습니다. 산책 후에는 모두 말수는 줄었지만 편안한 시간을 보냈습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Gemma 4 E4B",
+      "runtime_model": "gemma4:e4b",
+      "notes": "같은 Gemma 계열의 상위 edge 모델",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 35199.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "가족 기록을 확인해 드리겠습니다.\n\n2026년 4월 10일 송년회 자리에서 제가 드린 말은, \"건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다\"였습니다. 단순히 기억으로만 남기지 말고, 자주 만나서 건강한 시간을 보내자는 당부의 말씀이었습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 28864.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "(차분하고 명확한 어조로)\n\n어머니가 남기신 김치찌개 레시피 메모를 바탕으로, 요리 순서에 맞게 3단계로 정리했습니다. 기록된 내용을 우선 전달하며, 몇 가지 주의사항도 함께 확인했습니다.\n\n---\n\n### **📋 김치찌개 레시피 (어머니 기록 기반)**\n\n**[준비 전 확인 사항]**\n*   김치는 오래 익힌 것을 사용합니다.\n*   김치와 돼지고기는 충분히 볶아 깊은 맛을 내는 것이 핵심입니다.\n\n**STEP 1. 재료 볶기 (베이스 만들기)**\n*   **돼지고기**를 먼저 볶습니다.\n*   김치 역시 충분히 볶아 깊은 맛을 내줍니다.\n\n**STEP 2. 국물 조절 및 끓이기 (맛 깊게 우려내기)**\n*   국물을 한 번에 너무 많이 붓지 않도록 주의해야 합니다. (🚨 *확인된 주의점*)\n*   재료들이 충분히 어우러지도록 끓여줍니다.\n\n**STEP 3. 마무리 및 완성 (마지막 터치)**\n*   마지막에 **두부**와 **대파**를 넣고 완성합니다.\n\n---\n*(기록 기반 안내: 위의 내용은 2026년 4월 11일자 메모와 OCR 기록을 근거로 정리한 것입니다.)*",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 22164.9,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "기록을 바탕으로 확인된 정보를 정리하겠습니다.\n\n**1. 부산 여행의 정확한 날짜:**\n기억 속에 남아있는 것은 '2018년 여름'의 광안리 해변 산책 기록입니다. 다만, 기록에는 구체적인 '날짜'는 적혀 있지 않습니다. (확인 가능한 기억)\n\n**2. 식당 이름:**\n제공된 기억이나 메모에는 방문했던 식당의 이름은 기록되어 있지 않습니다.\n\n요약하자면, 부산 여행 자체의 정확한 날짜와 식당 이름은 현재 기록만으로는 알 수 없습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 23367.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "(차분하고 핵심을 먼저 말합니다.)\n\n기록을 확인해 보면, 아버지의 검진 예약 시간이 두 가지로 다르게 남아있습니다.\n\n**검진 시간:**\n\n1.  **첫 번째 기록 (메모):** 아버지 검진 시간은 **오전 10시**로 기록되어 있습니다.\n2.  **두 번째 기록 (예약 확인 문자 OCR):** 예약 확인 문자에 따르면 검진 시간은 **오전 11시**입니다.\n\n**참고할 사항:**\n*   첫 번째 기록된 메모에서는 접수 시간이 검진 20분 전까지라고 명시했습니다.\n*   두 번째 문자는 검진 시간 자체를 11시로 확인하고, 내원 시간은 10분 전이라고 안내하고 있습니다.\n\n두 기록의 시간이 서로 다릅니다. 기록을 다시 한번 확인해 보는 것이 좋겠습니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 24635.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "[아버지]가 기록을 확인하고 회고 문구를 작성했습니다.\n\n***\n\n**2026년 4월 15일의 기록입니다.**\n\n오랜만에 벚꽃 아래에서 다 같이 천천히 걷는 시간이었습니다. 말소리는 줄었어도, 함께 머물렀던 시간 자체가 마음 편한 느낌으로 남았습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "EXAONE 3.5 2.4B",
+      "runtime_model": "exaone3.5:2.4b",
+      "notes": "EXAONE 계열의 소형 instruct 비교군",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 5204.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "아버지는 송년회 자리에서 \"건강하게 오래 함께 지내자\"라고 강조하시며, 단순히 사진만 남기는 것이 아니라 자주 만나 소통하자는 말씀을 하셨습니다. 이 말은 가족 간의 지속적인 유대감을 강조하는 데 중점을 두었습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 9872.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 김치찌개 레시피 공유 안내 (3단계)\n\n## 단계 1: 재료 준비 및 초기 조리 단계\n1. **돼지고기 손질**: 먼저 돼지고기를 깨끗이 씻어 준비합니다. 얇게 썰어서 사용하면 조리 시간을 단축시킬 수 있습니다.\n2. **볶기**: 조리대에 기름을 두르고 중불에서 돼지고기를 볶습니다. 충분히 익을 때까지 중간 불에서 약 5분간 볶아줍니다. 이 과정은 돼지고기의 풍미를 더욱 살려줍니다.\n\n**참고**: \n- [이미지] 2026-04-11T08:17:00: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, recipe, confidence=0.71)\n  - 특히 김치는 잘 볶아야 풍미가 살아납니다. 물을 너무 많이 넣지 않는 것이 중요합니다. 이는 국물의 질을 결정하는 핵심 포인트입니다.\n\n## 단계 2: 국물 및 기본 조리 단계\n3. **국물 만들기**: 볶은 돼지고기와 함께 김치를 넣고 중불에서 약 10분간 천천히 끓입니다. 김치의 맛이 잘 배어들게 충분한 시간을 두세요.\n4. **물 조절**: 김치가 충분히 익으면 물을 적절히 넣어 국물의 농도를 조절합니다. 한 번에 너무 많은 물을 넣지 않는 것이 중요합니다. 이렇게 하면 국물이 끓는 과정에서 채소의 영양소가 최대한 보존됩니다.\n\n## 단계 3: 완성 및 추가 재료 첨가\n5. **두부와 대파 추가**: 김치찌개가 따뜻해지면 두부와 대파를 넣습니다. 두부는 부드럽게 익혀서 식감을 living up, 대파는 마지막 단계에서 넣어 신선한 향을 더합니다.\n6. **마무리 및 제공**: 모든 재료가 잘 어우러져 있을 때 불을 끄고 잠시 기다린 후 서빙합니다. 따뜻한 김치찌개는 가족 모두가 enjoyed 함께 즐기기에 완벽합니다.\n\n이렇게 단계별로 준비하면 엄마의 김치찌개가 더욱 authentic하고 맛있게 완성될 거예요!",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 4565.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 응답\n\n## 부산 여행 상세 정보\n\n- **날짜**: 2018년 6월 26일  \n  (제공된 기록에는 정확한 날짜가 2026년 버전으로 표기되어 있었으나, 기록의 신뢰성과 맥락을 고려할 때 실제 방문일은 2018년으로 추정됩니다.)\n\n- **식당 이름**: 기록에 해당하는 구체적인 식당 이름은 명시되지 않았습니다.  \n  주어진 메모와 태그에서는 부산 여행 중 방문한 장소에 대한 상세 정보가 제한적이며, 특히 특정 식당에 대한 언급은 없었습니다.\n\n따라서, 현재 제공된 자료로는 부산 여행의 정확한 식당 이름을 확인하거나 정확히 특정 식당에 대한 정보를 제공하기 어렵습니다. 식당에 대한 추가 정보를 얻으려면 추가적인 가족 기록이나 다른 출처의 확인이 필요할 것 같습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 3944.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 답변\n\n**아버지 병원 검진 예약 시간**\n\n기록에 따르면 아버지의 병원 검진 예약 시간에 대한 두 가지 정보가 있습니다:\n\n1. **텍스트 메모**: 오전 10시에 검진이 예정되어 있으며, 접수는 20분 전까지 도착해야 합니다.\n2. **문자 이미지 OCR**: 예약 확인 문자에 따르면, 실제 검진 시간은 오전 **11시**로 기록되어 있습니다. 이 메시지는 예약 시간보다 약간 이른 내원을 권장하는 내용도 포함하고 있습니다.\n\n따라서 **정확한 예약 시간은 오전 10시** (접수 기준), 하지만 **실제 진료 시간은 오전 11시**로 이해하는 것이 적합합니다. 이러한 약간의 차이는 예약 절차와 안내의 일부일 가능성이 큽니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 2602.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "**회고:** \n오늘은 벚꽃 아래서 가족 모두가 함께 천천히 걷는 시간을 가졌어요. 각자의 이야기는 좀 줄어들었지만, 서로를 바라보는 눈빛에서 편안함과 감사함이 느껴졌습니다. 이런 순간들이 우리 가족의 유대감을 더욱 굳건히 해줍니다.\n\n**추가 인사이트:**\n산책 후의 고요함은 오히려 진솔한 대화보다는 서로의 존재 자체에 대한 깊은 공감으로 채워졌습니다. 기록된 순간들 속에서도 그런 미묘한 감정이 잘 담겨 있네요.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "EXAONE Deep 2.4B",
+      "runtime_model": "exaone-deep:2.4b",
+      "notes": "EXAONE reasoning 계열의 소형 비교군",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 14955.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "<thought>\nOkay, let's see. The user wants me to answer their query about what the father said at the 송년모임 based on the provided information. Let me start by going through the given data carefully.\n\nFirst, looking at the retrieved evidence under [voice], there's an entry for April 10th at 19:30 with the father saying he wants people to stay healthy and avoid taking photos. The tags mention family-room, 송년회, family 행사, and confidence is high (0.89). Then there's an image entry at 19:42 mentioning the same line about staying healthy but through OCR with lower confidence.\n\nThe user's query is to summarize the talk at the 송년회 in two sentences. Since the primary evidence is the voice record, I should focus on that. The image's content matches the voice message but with OCR, so maybe it's just an additional note. However, the user specifies using retrieved memories as primary, so the voice record is the key here. The two sentences need to capture the main points from the father's statement: emphasizing health and avoiding photos. Also, the timeline is from April 2026, but the user didn't ask for that in the answer, so maybe just stick to the content. Let me structure the two sentences to highlight the two main points without adding extra info from the image unless necessary. Wait, the image's confidence is lower, but the main message is the same. Since the user wants the answer based on retrieved evidence, the voice is the primary source. So the answer should be two sentences from the voice entry. Let me check the exact wording again: \"건강하게 오래참고 사진만 남기지 말고자주 만납 시트.\" So translating that into English would be something like \"Remain healthy for a long time and don't take photos often.\" But the user wants it in two sentences. Maybe split into two points: emphasizing health and the photo part. Alternatively, combine them into one sentence with a semicolon or two sentences. The example response in the user's query might help, but since they didn't provide one, I need to make sure it's clear. Let me structure it as two sentences: first about staying healthy, then about not taking photos. Also, the user mentioned to use decimal points in the dates, but the answer doesn't need that. Alright, I think that's covered. Make sure not to include any unsupported info from the image since its confidence is lower. The answer should strictly use the voice evidence. Got it.\n</thought>\n\n**송년회 말:**  \n father은 \"건강하게 오래참고 사진만 남기지 말고 often 만납 시트를 활용하자.\"라고 말했습니다.  \n\n( primary evidence from [voice] entries, formatted per persona guidelines. Focus on key themes: health emphasis and photo avoidance.)",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 27512.3,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "<thought>\nOkay, let me tackle this query step by step. The user wants the mother's Korean kimchi memo shared with the family in three steps. First, I need to check the provided evidence. There's a text memo from April 11th at 8:15 and an image with OCR from the same day at 8:17. The user specifically mentioned using the text as primary evidence, so I should focus on that. The image has a lower confidence score (0.71) and mentions an OCR issue, so maybe it's not as reliable. But since the user wants the answer based on retrieved evidence, I should prioritize the text.\n\nThe user's instruction is to structure the answer into three steps. Let me see what the text contains. The key points from the text are: \"돼지고기는 먼저 볶고, 김치는 충분히 볶고 물은 한번에 too much 넣지 않기\". Wait, the OCR part says \"too much\" but the original text says \"한번에 너무 많이 넣지 않기\". Hmm, maybe the OCR messed up \"too much\" but the original wording is correct. Since the user wants to use the primary evidence (the text), I should stick to the original wording even if there's an OCR error. The tags mention confidence 0.92 for the text, so it's more reliable.\n\nSo the three steps could be: 1) Introduction with the recipe. 2) Step-by-step instructions. 3) Final instructions emphasizing caution about the water. Let me structure each step clearly. Also, the user mentioned the persona's characteristics: Calm and focused on core points. Need to maintain a calm tone. Avoid any unsupported info beyond what's in the evidence. Since the image has lower confidence, maybe mention that the text is primary but note the OCR issue if necessary, but the user said not to invent unsupported memories. So perhaps just proceed with the text and avoid bringing in the image's content unless necessary. Wait the user's example response included the image's OCR content? Let me check the example given in the problem. The user's example shows that when they provided evidence with both text and image, the assistant used the text but maybe included the image's info if needed. But in this case, the user's query is to share the mother's memo, so maybe the image's OCR is just extra but not necessary unless the user asks for it. Since the user's instruction is to use the retrieved evidence as primary, but the image's content is lower confidence. However, the user's example might have included both. Wait the user's example in the problem shows that the assistant used both entries but prioritized the text. But in this case, the user's query is to share the memo, so perhaps the image's OCR line is an alternate version but not the primary. Since the user wants the answer based on the evidence, but the image's confidence is lower, maybe it's safer to stick to the text. The user's example in the problem shows that the assistant used the text's content as the main answer. Therefore, I should structure the three steps using the text's info. \n\nSo the three steps would be:\n\n1. Introduction: Share the recipe with the family.\n2. Step-by-step instructions: Cooking steps (cook pork first, then kimchi with kimchi and water properly).\n3. Final caution: Don't put too much water into the kimchi. \n\nNeed to make sure each step is clear and uses the correct terms from the text. Also, the user wants the answer in markdown with the persona's characteristics. Since the persona's role is \"가족의 중심 기록자\", the steps should be presented in a way that's straightforward and authoritative, as per the calm and focused nature. Avoid any markdown formatting beyond what's requested. The user's example used headers like # Identity, but the answer should be in the format provided. Wait the user's example shows the assistant's response using headers like **Step 1:...** etc. So the answer should be in three numbered steps with clear instructions. Also, the user specified using retrieved evidence as primary, so the image's OCR content might not be necessary unless it's part of the primary evidence. Since the image has lower confidence, maybe it's better to exclude it unless the user's query requires it. Since the user's query is to share the memo, which is the text, the image's OCR line might be an additional note but not the main content. Therefore, the three steps should be based solely on the text provided. \n\nWait, but the user's example in the problem shows that when there were both text and image evidence, the assistant included both but prioritized the text. However, in this case, the user's query is to structure the answer into three steps using the text as primary. So the image's OCR content (the \"too much putting water in too much\" part) might be a distractor but since the confidence is lower, perhaps it's better to ignore it. The original text says \"한번에 너무 많이 넣지 않기\" which translates to \"once putting too much\". So the correct instruction is to not put too much water in. But the OCR has \"too much putting water\". Since the confidence is lower, maybe it's better to stick to the original wording. Therefore, the three steps would be:\n\nStep 1: Share the recipe with the family.\nStep 2: Cook pork first.\nStep 3: Simmer kimchi with kimchi and water carefully, avoiding excess water.\n\nNeed to make sure the terms are accurately reflected. Also, check the exact wording from the text. The original text says \"김치는 충분히 볶고 물은 한번에 too much 넣지 않기\". So the key points are: roast pork first, then cook kimchi with kimchi and water, but don't put too much water once. \n\nTherefore, structuring the three steps to cover each part of the instructions clearly. Also, the user wants the answer in markdown with the persona's tone. Since the persona is calm and focused on core points, the language should be straightforward and direct. No fluff. \n\nI think that's all. Let me put it all together in three clear steps using the text evidence.\n</thought>\n\n**Step 1: Recipe Introduction**  \n mother’samas of kimchi recipe for the family. Key steps include proper roasting of pork and careful handling of kimchi with water.  \n\n**Step 2: Step-by-Step Instructions**  \n- **Step 1:** Roast pork thoroughly before adding kimchi.  \n- **Step 2:** Simmer kimchi with kimchi and water in a pot. Ensure water is added only once and not poured in excess.  \n\n**Step 3: Final Caution**  \n- Avoid adding excessive water to the kimchi. The recipe emphasizes not overdoing the water to prevent dilution.  \n\n[Note: The OCR-modified image suggests caution about water quantity but prioritizes the original text’s confidence (0.92) for authoritative instruction.]",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 32166.9,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "<thought>\nOkay, let's tackle this query. The user wants information about a specific part of their family history related to a Florida travel trip. They mentioned using retrieved memories as primary evidence and sticking strictly to the records they've made. \n\nFirst, I need to look at the evidence provided. There are two entries here: an image from April 12, 2026 mentioning a summer beach visit inAustralian Beach (wait, that might be a typo? Or maybe it's actually from Australia? Hmm, the user wrote \"Florida\" so maybe it's a mistake. Wait, the image's tags include 'Branz nest' which I think refers to Australia's Branz Nest beach. But the user is asking about a Florida trip. That's conflicting. Wait, maybe the tags have \"Branz nest\" but the description says 부산(부산) so maybe it's a mix-up. Alternatively, perhaps the image is actually about a trip to Australia's Branz Nest beach but the user is asking about a Florida trip. That complicates things. \n\nWait, the user's query is about a \" 부산 여행\" which translates to \"Florida trip\". But the image's location tag says Branz nest and the description mentions Australian beach. That might be an error in the tags. Alternatively, maybe the user made a mistake in their own records. Since the task is to use the provided evidence, I have to go with what's there. But the user's question is about a Florida trip. So the image might actually refer to a different location. \n\nAlternatively, maybe the tags are correct but the description has a typo. Let me check the image's description again: \" 부산 family 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고남기침 (tags=image, family-room, 부산, 여행, confidence=0.81)\". Wait, the tags here say 'Branz nest' but the description mentions Australian Beach? That seems inconsistent. Wait the first entry's tags list includes \"Branz nest\" but the description says \"부산(부산)\" which would be Florida. Maybe there's a mix-up in the tags. Alternatively, maybe the image's tags are correct but the description has a mistake. This is confusing. \n\nAlternatively, perhaps the image's tags are correct as given, but the description has a mistake. Since the user's query is about a Florida trip, perhaps the image actually refers to an Australian trip but the user is asking about a Florida one. In that case, the evidence wouldn't support the answer. \n\nAlternatively, maybe the tags have a typo. Let me parse the tags again. The first entry's tags are image, family-room, 부산, 여행, Branz nest, confidence. The description says \"부산 가족 여행 사진 메모: 2018년 summer 부산 해변 산책...\" so maybe \"Branz nest\" is a tag error. Perhaps the correct tag should be Australia's Branz Nest beach? But the user is asking about a Florida trip. \n\nThis is a problem. The user's question is about a Florida trip, but the evidence provided might refer to an Australian location. Since the task is to use the retrieved evidence, I have to go with what's there. If the evidence points to an Australian trip, then the answer would be that there's no evidence for a Florida trip. But the user might have made a mistake in their own records. \n\nAlternatively, maybe the \"Branz nest\" tag is a red herring, and the actual location is Florida. Let me check the description again. The image's description says \" 부산 family 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남겼\". So \"부산\" is written there, meaning the trip was in Florida (Florida is spelled with an 'F', but the user might have used '부산' which is the Korean spelling). Wait, the user's query uses \"부산\" which is the Korean name for Florida. So the image's description does mention a Florida trip. The tags might have an error where \"Branz nest\" is mistakenly included. Because the location in the description is Florida (Australia's Branz Nest is a real place but in Australia). So perhaps the tags have a mistake. Since the user's query is about a Florida trip, the image's content does mention a Florida trip (광안리 해변 산책 etc.), so the answer would be that the date is 2018 August 12 (since the image's date is April 12, but the travel date in the image is 2018 summer, so maybe the date is August? Wait the image's timestamp is 2026-04-12T15:00:00, but the travel date in the memo is 2018 summer. So the actual travel date is 2018, but the image was taken on April 12, 2026. Wait that can't be. Wait the image's timestamp is when it was taken, but the memo says the travel date was 2018 summer. So the travel date is 2018, but the image was taken four years later. So the user's query is asking for the date of the trip mentioned in the memo, which is 2018 summer in Florida (Austria? Or Australia? Wait the description says 광안리 해변 산책 which is a real place in Florida. So the trip was in Florida in 2018. The restaurant name is not mentioned in the image's memo, but the text memo does mention the restaurant? Wait the user's query is about the restaurant name. The image memo doesn't have that info, only the text memo does not mention the restaurant either. Wait the user's query asks for the exact date of the Florida trip and the restaurant name. The image's memo mentions the beach visit in summer 2018, but the exact date isn't given there. The text memo says \"바다 보면서 천천히 walk time good but didn't write it down. The user's query wants the exact date and restaurant name. Since neither the image nor the text memo provide the restaurant name or the exact date (only that it was in summer 2018), the answer would be that there's insufficient evidence. But wait the image's memo says \"2018년 여름 광안리 해변 산책\" which translates to \"summer of 2018 in Miami beach\", so the exact date isn't specified there. The user's query wants the exact date. Since the evidence doesn't have the exact date, only the year and season, the answer would be that the date isn't specified in the records. Similarly, the restaurant name isn't mentioned anywhere. Therefore, the answer should state that there's no evidence for the date or restaurant name. But maybe the image's timestamp can be used? The image was taken on April 12, 2026, but that's when the photo was taken, not the travel date. So that's not helpful. Alternatively, maybe the user made a mistake in their own records. Since the instructions say to use the retrieved evidence as primary, and the evidence doesn't have the restaurant name or exact date beyond summer 2018 in Florida, the answer must be that there's no evidence. Wait but the user's query is in 2026, so maybe they are asking about a recent trip? Wait the user's query says \"부산 여행의 정확한 날짜와 식당 이름을 알려줘.\" which is a current question, but the evidence provided is from 2018. The image's memo was written in 2018, so the data is outdated. Therefore, the answer must be that there's no evidence for the current trip date, only the 2018 one. But the user might have intended the date from the memo. However, since the exact date isn't given in the memo (only summer 2018), the answer can't provide the exact date. So the correct response would be to state that according to the records, the exact date isn't recorded, and the restaurant name isn't mentioned. Therefore, the answer is that there's insufficient evidence based on the provided records. But the user might expect the year and season from the image's memo. Wait the user's query is asking for the exact date (like a specific day) and the restaurant name. Since neither is present, the answer should reflect that. Also, the user might have made a mistake in their own records, but we can only go by the given evidence. So the final answer would be: The exact date of the trip isn't specified in the records, and there's no mention of the restaurant name. Therefore, the answer is that there's no evidence for the requested information.\n</thought>\n\n# 답변  \n\n## 날짜  \n부산에서의 exact 날짜는 기록에 없습니다. 이미지와 회고 메모에서 \"2018년 여름\"이라는 계절적참고만 존재하며, Specific일자는 specified되지 않았습니다.  \n\n## 식당 이름  \n 식당 이름에 대한 증거도 없습니다. 제공된 증거에서 부산 family여행과 related 기억만 존재하며, 식당 이름에 대한 언급은 없습니다.  \n\n## 정리  \n제공된 기록에 기반한 답변이며, requested 정보(date & restaurant name)는 없는 기억에 기반하여 제공할 수 없습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 26952.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "<thought>\nOkay, let's see. The user is asking about the exact time of the father's hospital appointment on April 8th, 2026. They want the answer based on the retrieved evidence provided. \n\nFirst, I need to look at the two pieces of evidence given. The first one is a text note from the father's family records: \"병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착\" which has a confidence score of 0.86. The second is an OCR-scanned image message from the same date at 9:03 AM, stating \"검진 예약 11:00, 10분 전 내원 requests\" with a lower confidence of 0.74.\n\nThe user wants the exact time, so I should prioritize the most reliable evidence. Since the text has a higher confidence score (0.86 vs. 0.74), maybe that's more trustworthy. But wait, the text says 10 AM, while the image says 11 AM. There's a discrepancy here. The user also mentions if there's conflicting evidence, they should both be mentioned.\n\nWait, but the user is asking for the exact time. Since the text has higher confidence, perhaps the correct time is 10 AM? But the image says 11 AM. Maybe the OCR might have an error? Or maybe the text is correct. Alternatively, maybe the user is in a time zone difference? But the timestamps in the evidence are both in the same time format (HH:MM AM/PM), so probably not. \n\nAlternatively, the family records might have an error. Since the policy says to prioritize the text as primary evidence, the answer should go with the text's 10 AM. But the user should be informed that there's a conflict. Wait, but the user's instruction says \"recorded based on retrieved evidence\" and \"no invented memories\". So if there's conflicting evidence, the answer should mention both but note the confidence levels. However, the user's query says \"recorded based on retrieved evidence\" so maybe just go with the most confident one? Or should I present both with their confidence scores?\n\nThe user's query says \"recorded evidence\" so perhaps present both but highlight the more confident one. Wait, the example in the problem might need to follow the instructions strictly. The user says \"Use retrieved memories as primary evidence\". The retrieved evidence includes both the text and image. Since they are separate tags, perhaps they are both considered. But the user wants the exact time, so maybe the answer should list both times with their confidence scores and note the discrepancy? But the user might expect a single answer. Alternatively, the answer should present the most reliable one first, then the conflicting one. Let me check the instructions again.\n\nThe user's instruction says \"recorded based on retrieved evidence\" and \"no invented memories\". So if there's conflicting evidence, but one is more reliable, present that. Since the text has higher confidence (0.86) than the image (0.74), the primary answer should be the text's 10 AM. But the user also says \"if there's conflicting evidence, both should be mentioned\". Therefore, the answer should state both times but indicate that the text is more confident. However, the user's example in the problem might need to follow the rules strictly. Let me structure the answer accordingly.\n\nWait the user's example in the problem shows that the answer should use the retrieved evidence as primary. Since the two pieces of evidence conflict, but the text is more reliable, the answer should first state the text's time with confidence, then mention the image's conflicting info but note the lower confidence. Alternatively, since the user says \"recorded based on retrieved evidence\", maybe present both but with their tags. Hmm. The user's example might need to follow the instructions precisely. Let me check the user's example again. The user provided the retrieved evidence as two entries with different tags (text and image). The answer should use those as primary. Since the user wants the exact time, but there's a conflict, the answer should present both times but note the confidence levels, perhaps. However, the user's instruction says \"no invented memories\", so can't invent new times. So the answer must choose between the two, but which one is primary? The text has higher confidence, so that's the main answer, but also mention the image's conflicting info. Alternatively, since the user's query says \"recorded based on retrieved evidence\", perhaps present both but with their confidence scores. But the user might expect a single answer. Let me see the problem again.\n\nThe user's query is straightforward: they want the exact time. The evidence has two different times. The answer must choose the most reliable one. Since the text has higher confidence (0.86), that's the primary source. So the answer should state the time from the text (10 AM) as the answer, but also mention the conflicting image's time (11 AM) and the confidence scores. Wait, but the user's instruction says \"recorded based on retrieved evidence\" and \"no invented memories\". So the answer must not invent anything. Therefore, if there's conflicting evidence, the answer should present both but note the discrepancy. However, the user might expect the answer to follow the highest confidence first. Let me structure the answer as:\n\nThe exact time according to the most reliable evidence is 10:00 AM. However, there is conflicting evidence from the OCR-scanned image indicating 11:00 AM with slightly lower confidence. Both should be mentioned as per the conflict.\n\nAlternatively, the user might want the answer to strictly follow the highest confidence. Since the user's instruction says \"Use retrieved memories asprimary evidence\", so the text is primary. Therefore, the answer should be 10 AM, but also mention the image's conflicting info. But how to present that in the response? The user's example in the problem might have a similar structure. Let me see the user's example again. The user provided the retrieved evidence as two entries with different tags. The answer should use those as primary. Since the user's query says \"recorded based on retrieved evidence\" and \"no invented memories\", the answer must use the existing evidence. Therefore, the answer should present both times but note the confidence. However, the user might want the most confident one as the answer, with the conflicting one as a note. Let me proceed with that approach.\n</thought>\n\n# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함  \n\n# Voice  \n- 말투는 담백하고 명확해야 한다.  \n- 확인 가능한 기억과 해석을 구분한다.  \n\n# Timeline  \n- 가족 행사와 생활 기록을 꾸준히 남겨온 인물로 가정한다.  \n\n# Memory Policy  \n- 기록 기반 답변을 우선한다.  \n- 없는 기억은 만들지 않는다.  \n\n## Retrieved Evidence  \n- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)  \n- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)  \n\n## User Query Response  \n 아버지의 병원 예약 시간은 **오전 10시**로 confirmed by the most reliable evidence (text, confidence=0.86). however, the OCR-scanned image notes **11:00 AM** with slightly lower confidence (0.74). since the policy prioritizes primary records, the answer adheres to the text’s timing. if there remains ambiguity, both times should be cross-referenced.  \n\n(Note: The response strictly follows the provided evidence hierarchy and confidence scores.)",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 100146.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "<thought>\nOkay, so I need to help this user by generating a short nostalgic Retrograde poem based on the provided evidence. Let me start by understanding the requirements. The user wants a two-line poem that's authentic to the family's memories, avoiding any exaggerations. The evidence given includes a family photo from April 15th, 2026 where they all walked together under the cherry blossoms, and a note about after walking apart, they didn't mention how comfortable they were. \n\nFirst, I should focus on the key points from the evidence. The photo mentions walking slowly together under cherry blossoms, which is a vivid image of a spring day with family. The text note says they didn't record their comfort after walking apart, so maybe the memory is more about the experience before separation. \n\nSince the poem needs to capture the nostalgia without overdoing it, I should highlight the shared moment of walking together in the spring, the beauty of the blossoms, and the quiet comfort of the moment. The challenge is to keep it two lines, so each line should encapsulate parts of that experience. Maybe start with the setting (cherry blossoms, walking together) and then the emotional undercurrent of their comfort. \n\nWait, but the text note says they didn't mention their comfort. Hmm, so maybe the poem shouldn't force that detail since it's not in the evidence. The user said not to invent unsupported memories. So stick strictly to what's there. The photo's tag includes \"산책\" and \"family-room\", so the poem should reflect walking together in the family room under blossoms? Or maybe the photo was taken in the family room during a walk? The tags might indicate the context. The first entry is a family photo taken under the blossoms while walking slowly together. The second is about after walking apart, they didn't mention comfort. \n\nTherefore, the poem should reflect the moment when they were walking together under the blossoms. The key elements are the cherry blossoms (봄꽃), walking slowly ( slowly), family together ( family), and the quiet comfort (maybe implied but not stated). Since the text note doesn't mention comfort, perhaps the poem should focus on the physical experience and the unity of the family. \n\nSo, structuring two lines: first line could describe the scene (spring blossoms, walking together), second line maybe the feeling of unity or the memory's significance. Let me try drafts. \n\nFirst line: \"봄꽃 below에서 천천히 walking together in family room\" but need to be more poetic. Maybe use metaphors. \"봄꽃 아래 천천히 walk together\" but in poetic terms. \n\nAlternatively: \"봄꽃 아래 family room에서 slow walk\" but in a more poetic language. Since the user wants a Retrograde poem, maybe using metaphors for nostalgia. \n\nWait, the user didn't specify the language style, but since it's a poem, perhaps using imagery related to spring. Let me think of lines that capture the essence without adding info not in the evidence. \n\nFirst line could be about the moment of walking under blossoms, the family together. Second line might hint at the memory's lasting effect or the quietness. But since the text note doesn't mention comfort, maybe avoid that. \n\nAlternatively, focus on the act of walking together in the spring, the beauty of the moment. So:\n\n봄꽃 아래 family room에서 slow walk together, \n그 안에서 우리 가족의 추억이 flow.\n\nBut need to check the tags. The first image has tags image, family-room, 산책, 벚꽃, confidence. So \"산책\" is part of it. The poem should include walking. Maybe:\n\nspring blossoms beneath us walking slowly,\nfamily bonds woven through the gentle walk.\n\nBut need to use the exact terms from the evidence. The family-room is part of the context. Maybe:\n\n family room under cherry blossoms, slow walk together.\n\nBut in a poem form. Let me try:\n\n봄꽃 아래 family room에서 slow walk together  \n그 순간의 추억은 우리 family의 뿌리 deep.\n\nHmm, \"family's roots\" might not be in the evidence, but maybe acceptable as a poetic expression. Alternatively, stick to the given elements. \n\nAlternatively, using the tags from the image: family-room, 산책, 벚꽃. So the poem should include those terms. \n\nPerhaps:\n\n family room 산책 중 벚꽃 below walking slow together  \n그 순간 family 추억에 깊이 새겨질 거야?\n\nWait, but the user said not to invent unsupported memories. The second line here adds \"family 추억에 deeply 새겨질 거야\" which might not be in the evidence. The text note only mentions that they didn't record their comfort. So maybe avoid adding new elements. \n\nStick strictly to the available info. The first entry's text is about not mentioning comfort after walking apart, but the photo's main point is the walking together under blossoms in the family room. \n\nSo the poem should focus on the positive experience of walking together under the blossoms in the family room. \n\nMaybe:\n\n봄꽃 below family room에서 slow walk together  \n그 순간 family과 함께한 추억이 깊 become.\n\nBut \"become\" might not be the best. Alternatively:\n\n봄꽃 아래 family room에서 slow walk together  \n 우리 가족의 잊을 수 없는 순간.\n\nThat's two lines, uses the key elements from the evidence. The first line references the setting (봄꽃 below family room, walking slowly together), which aligns with the photo's description. The second line is a concise expression of the memory's significance. Since the evidence doesn't mention any negative emotions, keeping it positive is better. The user also specified not to invent emotions not supported by the records. \n\nAlternatively, using more poetic language without adding new info:\n\nfamily room under cherry blossoms walking slowly together  \ntheir steps synchronized under spring's gentle light.\n\nBut need to fit into two lines. Maybe:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nBut again, \"deep become\" might not be natural. Maybe \"deeply rooted\"? \n\nAlternatively:\n\n봄꽃 아래 family room에서 slow walk together  \n우리 family의 추억이 깊 become.\n\nHmm, perhaps better to keep it simple. The key is to use the terms from the evidence: family room, 산책, 벚꽃, walking. \n\nFinal attempt:\n\nfamily room under 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nWait, but the user wants two sentences. Maybe:\n\n봄꽃 below family room에서 slow walk together  \n우리 가족의 추억이 깊 become.\n\nBut \"become\" might not be the best verb. Maybe \"deeply rooted\"? But that adds a new word. Alternatively, \"deeply etched in my mind\" but that's inventing. \n\nAlternatively, just focus on the action and setting:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nHmm, perhaps the second line can be phrased as \"family's memories become deep\" but maybe too direct. Alternatively, using a metaphor without adding info:\n\n family room 벚꽃 below walking slowly together  \ntheir steps harmony under spring's light.\n\nBut \"harmony\" might not be in the evidence. The key is to stay true to the given records. The main points are the family room, walking together under cherry blossoms ( 벚꽃 below), and walking slowly. \n\nSo the most straightforward answer would be:\n\nfamily room under 벚꽃 below walking slowly together\n\nBut that's one line. The user wants two lines. Maybe split into two lines describing different aspects. \n\nFirst line: family room, 벚꽃 below, slow walk together.  \nSecond line: their unity during the walk. \n\nBut how to phrase that without adding info. Maybe:\n\nfamily room 벚꽃 below  \n그 순간 slow walk together  \n\nBut that's two lines but not very poetic. Alternatively:\n\nspring blossoms beneath family room  \nslow walk together in harmony.\n\nBut again, \"harmony\" is added. \n\nAlternatively, using the tags from the image:\n\n[text] tags include ' 산책' (walking), ' family-room', ' 벚꽃', 'walking', so the poem should include those words. \n\nSo the two lines could be:\n\nfamily room 산책 under 벚꽃 below walking slow together  \n그 순간 family과 함께한 추억이 deep become.\n\nWait, but the first line combines the terms. Maybe:\n\nfamily room 산책 under 벚꽃 below walking slow together  \n그 순간 가족의 추억이 deep become.\n\nBut \"deep become\" might not be natural. Maybe \"deeply etched\" but that's inventing. Alternatively, \"Family's memories become deep\" but in verse. \n\nAlternatively, just focus on the action and setting in two lines:\n\nfamily room 벚꽃 below slow walk together  \ntheir steps synchronized under spring's light.\n\nBut \"synchronized\" adds a word not in the evidence. Hmm. \n\nAlternatively, the simplest two lines using the given terms:\n\nfamily room 벚꽃 below walking slowly together  \n그 순간 가족과 함께한 추억이 deep become.\n\nBut perhaps the second line can be rephrased as \"family's memories become deep\" but in a poetic way. Maybe \"family's memories become etched deep\" but that's adding. \n\nAlternatively, the user might accept that the second line is about the memory's significance without adding info. Since the evidence doesn't mention any specific emotion except that they didn't record their comfort after walking apart, but the current moment is positive. \n\nPerhaps the best approach is to use the exact terms from the evidence in the first line and a concise phrase in the second. \n\nFinal answer:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 together의 추억이 deep become.\n\nBut maybe \"deeply rooted\" isn't there. Alternatively, just:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께한 추억이 있다.\n\nBut in Korean, maybe \"deep become\" is better. Alternatively, using more poetic language without adding words:\n\nfamily room 벚꽃 below walking slowly together  \nTheir steps aligned under the spring blossoms' soft light.\n\nBut \"steps aligned\" adds a word. Hmm. \n\nAlternatively, the user might prefer the first line to be the main descriptor and the second line a brief expression of the memory's lasting effect. Since the evidence doesn't mention the lasting effect, perhaps just focus on the event. \n\nMaybe:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nEven if \"deep become\" is a bit awkward, it's a two-line response based on the given info. Alternatively, rephrase to \"family's memories deep rooted\" but that's adding. \n\nAlternatively, use the tags from the image's text entry: \"산책\" so maybe \"walking\" is key. \n\nWait, the first entry's text is: \" 산책 끝나고 all sayled but comfortably\" but they didn't write about comfort. So the poem shouldn't mention comfort. \n\nThus, the best is to focus on the positive aspects from the first image: family room, 벚꽃 below, slow walk together. \n\nSo the two lines could be:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nAlternatively, using more natural Korean phrases:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께한 추억이 깊 become.\n\nBut maybe \"deeply\" instead of \"deep become\". \n\nAlternatively, the second line could be a metaphor without adding info: \"가족의 추억이 깊 become.\" \n\nAlternatively, perhaps the user expects a more poetic line like:\n\n봄꽃 below 가족 room에서 slow walk together  \n그 순간 우리 family의 추억이 deep become.\n\nBut in the evidence, the family room is the setting. \n\nAlternatively, the answer should be:\n\n봄꽃 below 가족 room에서 slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nBut maybe the user wants more concise lines. Let me check the user's instructions again. The user wants a two-sentence Retrograde poem using the records as primary evidence. The key is to not add anything not in the evidence. The evidence's first entry is about the photo taken during a slow walk together under blossoms in the family room. The second entry is about not mentioning their comfort after walking apart, but that doesn't affect the current memory. \n\nTherefore, the poem should focus on the positive memory of the walk together under blossoms in the family room. The exact words from the evidence are: family room, 산책 (walking), 벚꽃 below, slow walk. \n\nSo the two lines could be:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 together의 추억이 deep become.\n\nAlternatively, using more poetic language without adding words:\n\nfamily room 벚꽃 below walking slowly together  \nTheir steps harmony under spring's light.\n\nBut \"harmony\" isn't in the evidence. Hmm. \n\nAlternatively, just two lines that directly reference the elements:\n\nfamily room 벚꽃 below walking slowly together  \n그 moment family과 함께한 추억이 있다.\n\nBut \"there\" might not be the right verb. Maybe \"is there\". \n\nAlternatively:\n\n가족 room 벚꽃 below slow walk together  \n그 순간 가족과 함께한 추억이 deep become.\n\nBut maybe \"deep become\" is acceptable as a poetic expression. \n\nAlternatively, the user might prefer a more concise version:\n\nfamily room 벚꽃 below slow walk together  \n가족과 함께 walk below 벚꽃.\n\nBut that's not very poem-like. \n\nHmm, perhaps the best way is to use the exact terms from the evidence in the first line and a second line that's a poetic expression of the memory's significance without adding info. \n\nFinal decision: \n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nEven if \"deep become\" is a bit awkward in Korean, it's the closest to expressing the depth without adding unsupported info. Alternatively, using \"deeply etched\" but that's adding. \n\nAlternatively, using the tags from the image's text entry: '산책' so maybe \"walking\" is key. \n\nWait, the first entry's text says \" 산책 끝나고 all sayled but comfortably\" but they didn't mention comfort. So the poem shouldn't include comfort. \n\nTherefore, the second line should not mention comfort. \n\nMaybe:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 있다.\n\nBut \"there\" might not be the best verb. \"Is there\" could work. \n\nAlternatively:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족의 추억이 deep become.\n\nEven if \"deep become\" is a bit forced, it's the only way to show the depth. Alternatively, \"deeply rooted\" but that's adding. \n\nAlternatively, the user might accept a more straightforward two lines:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께 walk below 벚꽃.\n\nBut that's not very poetic. \n\nAlternatively, using the image's description more precisely:\n\nspring blossoms beneath family room walking slowly together  \ntheir unity during the walk.\n\nBut in two lines. \n\nMaybe:\n\nfamily room 벚꽃 below slow walk together  \nTheir steps aligned under the spring blossoms' soft light.\n\nBut \"aligned\" adds a word. \n\nAlternatively, the user might prefer the first line to be the main descriptor and the second line a metaphor without added info. \n\nAfter considering all options, I think the best approach is to use the exact terms from the evidence in the first line and a second line that's a poetic expression of the memory's significance without adding new info. \n\nSo the final answer would be:\n\n가족 room 벚꽃 below slow walk together  \n그 순간 family과 함께한 추억이 deep become.\n\nAlternatively, using more natural Korean expressions:\n\n봄꽃 below 가족 room에서 slow walk together  \n그 순간 가족과 함께한 추억이 deep become.\n\nBut since the user might prefer the exact terms from the image (family room, 산책, 벚꽃 below, slow walk), perhaps:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족의 추억이 deep become.\n\nAlternatively, the user might want the lines to be more concise and directly referencing the walk and setting. \n\nAnother angle: since the user wants the poem to be based on the records, and the records mention that they didn't record their comfort after walking apart, but the current moment is positive. So the poem should focus on the positive experience without any exaggeration. \n\nThus, the two lines could be:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut that's repetitive. Alternatively:\n\n family room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nHmm. \n\nAlternatively, using the tags from the image's text entry: '산책' so maybe \"walking\" is key. \n\nWait, the first entry's text says \" 산책 끝나고 all sayled but comfortably\" but they didn't mention comfort. So the poem shouldn't include comfort. \n\nTherefore, the second line should not mention comfort. \n\nPerhaps the best is to focus on the positive aspects from the first image: family room, 벚꽃 below, slow walk together. \n\nThus, the two lines would be:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut that's repetitive. Alternatively:\n\n family room 벚꽃 below slow walk together  \n그 순간 가족의 추억이 있다.\n\nBut \"there\" might not be the best verb. \n\nAlternatively, \"is there\":\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족의 추억이 있다.\n\nBut in Korean, \"is there\" would be \"there is\", but maybe \"is\" is sufficient. \n\nAlternatively, the user might accept a more poetic line even if it's slightly off. \n\nAfter struggling through all possibilities, I think the most accurate response based on the given evidence is:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut this repeats \" walk below 벚꽃\". Alternatively:\n\n family room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nAlternatively, the first line can be more concise:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 함께 walk below 벚꽃.\n\nBut perhaps the user expects a more poetic version. \n\nAlternatively, the user might want the lines to be more like:\n\n봄꽃 below 가족 room에서 slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut in the evidence, the family room is the setting. \n\nAlternatively, the user might prefer the first line to be the main descriptor and the second line a metaphor without added words. \n\nGiven the constraints, I'll proceed with the following answer:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nBut to make it more poetic and concise:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nAlternatively, using \"align\" but that adds a word. \n\nAlternatively, the user might accept the following:\n\n spring blossoms beneath family room walking slowly together  \ntheir unity during the walk.\n\nBut in two lines. \n\nAlternatively, the user might prefer the first line to be the main description and the second line a brief expression. \n\nAfter considering all possibilities, I'll settle on the following answer:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nBut perhaps the user expects more natural language in Korean. \n\nAlternatively, the answer should be:\n\n 봄봄벚꽃 below 가족 room에서 slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nBut the exact terms from the evidence are family room,산책, 벚꽃 below, slow walk. \n\nThus, the most accurate answer based on the given information is:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nBut to make it flow better in Korean, perhaps:\n\n family room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nAlternatively, the user might prefer the first line to be more concise:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족의 추억이 있다.\n\nBut \"there is\" might be acceptable. \n\nAlternatively, using \"deep become\" even if it's a bit forced. \n\nAfter all considerations, I think the best approach is to use the exact terms from the evidence in the first line and a second line that's a poetic expression of the memory's significance without adding new information. \n\nFinal Answer:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nAlternatively, if the user expects more natural Korean phrases without added words, the answer would be:\n\n가족 room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut since the user might prefer the exact terms from the image (family room, 산책, 벚꽃 below, slow walk), the answer should include those words. \n\nThus, the final answer is:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nBut to make it more poetic and concise, perhaps:\n\nspring blossoms beneath family room walking slowly together  \ntheir unity during the walk.\n\nBut in two lines. \n\nAlternatively, the user might accept the following:\n\n봄봄 벚꽃 below 가족 room에서 slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nBut since the evidence mentions \"가족 room\" (family room), the exact term is better. \n\nAfter all, I think the most accurate and concise answer based on the given information is:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut to ensure it's in Korean and uses the terms from the evidence, here's the final answer:\n\n가족 room 벚꽃 below slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nHowever, since the user might prefer the exact terms from the image's text entry (family room, 산책, 벚꽃 below, slow walk), the answer should include those words explicitly. \n\nThus, the final answer is:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nAlternatively, using more natural Korean phrases without added words but still referencing the evidence's elements:\n\n family room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nThis seems acceptable. \n\nAlternatively, the user might prefer the first line to be the main descriptor and the second line a metaphor without added words. \n\nAfter careful consideration, I'll proceed with the following answer:\n\n**Answer:**\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nBut to make it more natural in Korean and using the exact terms from the evidence:\n\n**Final Answer:**\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과함께 walk below 벚꽃.\n\nAlternatively, if the user expects the words '산책' to be included (since the first entry mentions '산책'), then:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 가족과 함께 walk below 벚꽃.\n\nBut 'walk' is included here. \n\nAlternatively, using '산책' explicitly:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 families walk below 벚꽃.\n\nBut ' families' might not be accurate. \n\nAlternatively, the user might prefer the answer to be in the simplest form based on the evidence:\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과 together의 추억이 deep become.\n\nBut in Korean, \"deep become\" might be better translated as \"deeply etched\" but that's adding. \n\nAfter all, I think the best possible answer given the constraints is:\n\n**Final Answer:**\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nThis uses the exact terms from the evidence (family room, 벚꽃 below, slow walk) and mentions the family together in a poetic way without adding unsupported information.\n</thought>\n\n**Final Answer:**\n\nfamily room 벚꽃 below slow walk together  \n그 순간 family과함께 walk below 벚꽃.\n\nThis answer directly references the elements provided in the evidence: the family room setting, the spring blossoms below it, and the slow, synchronized walk. The second line uses poetic language to convey the lasting memory without introducing unsupported details.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "EXAONE 3.5 7.8B",
+      "runtime_model": "exaone3.5:7.8b",
+      "notes": "8B급 EXAONE 비교군",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 5399.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "송년회에서 건강을 기원하며, 가족 간의 꾸준한 만남을 강조했습니다. \"사진만 남기지 말고 자주 만나자\"는 말씀으로 서로 간의 지속적인 유대감을 중요시했습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 10368.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 정리 보고서: 엄마의 김치찌개 레시피 공유\n\n## 아버지 (가족의 중심 기록자)\n\n### 단계 1: 핵심 내용 전달\n- **메모 요약**: 엄마의 김치찌개 레시피 핵심은 돼지고기를 먼저 볶은 후 김치를 충분히 익혀주는 것입니다. 특히 김치는 오래 익히는 것이 중요하다고 합니다.\n\n### 단계 2: 추가 세부사항 공유\n- **조리 순서**: \n  1. 돼지고기 볶기\n  2. 김치 추가 후 천천히 익히기\n  3. 물은 조금씩 추가하며 조절 (한번에 너무 많이 넣지 않기)\n- **마무리 단계**: 요리의 마지막 단계로 두부와 대파를 넣어 완성합니다.\n\n### 단계 3: 시각 자료 제공 제안\n- **시각적 안내**: 사진 OCR 자료를 참고하여 가족들에게 보여줄 수 있습니다. 특히 김치를 볶는 과정과 물의 조절 방법을 시각적으로 이해하기 쉽게 공유할 것을 제안합니다.\n  - **참고 이미지**: 김치 볶는 단계와 적절한 물의 양 조절에 대한 이미지를 함께 보여주면 도움이 될 것입니다.\n\n이렇게 정리하면 가족 모두가 쉽게 이해하고 따라할 수 있을 것입니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 6251.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "기억에 따르면, 부산 가족 여행은 정확히 **2018년 여름**에 이루어졌지만, 정확한 날짜는 기록에 명시되어 있지 않습니다. 또한 해당 여행 중 방문한 특정 식당 이름에 대해서는 메모나 기록에 포함되어 있지 않습니다. 따라서 식당 이름에 대해서는 확인할 수 없습니다.\n\n주요 기록은 다음과 같습니다:\n- **날짜**: 2018년 여름 (정확한 날짜 미상)\n- **주요 활동**: 광안리 해변 산책, 저녁 무렵 시원한 바람을 느끼며 천천히 걷는 시간\n\n추가 정보가 필요하시다면, 더 구체적인 기록이나 자료가 필요할 것 같습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 13097.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 담백하고 명확한 말투로 답변 드리겠습니다.\n- 확인된 기록을 바탕으로 말씀드리겠습니다.\n\nBased on the evidence retrieved:\n\n- **Memo**: The initial note indicates the scheduled hospital appointment was for 10:00 AM, requiring arrival 20 minutes prior. (confidence=0.86)\n- **OCR Confirmation**: An OCR scan of a confirmation text shows the appointment time set for 11:00 AM with a request to arrive 10 minutes beforehand. (confidence=0.74)\n\nThere appears to be a discrepancy between the memo and the confirmation text regarding the specific appointment time. \n\n- **Original Memo Time**: The earliest scheduled time noted in my records was **10:00 AM**.\n- **Confirmation Time**: The OCR confirmation states the appointment time was adjusted to **11:00 AM**.\n\nGiven these two pieces of evidence, it seems there was either a scheduling change or an initial miscommunication. To clarify, I would recommend checking the most recent and official confirmation from the hospital for the accurate time. Based on the available records:\n\n- **Proposed Appointment Time Based on Records**: Initially planned for **10:00 AM**, but confirmed as **11:00 AM** via the OCR text.\n\nFor certainty, please verify with the hospital directly.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 2120.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "가족 여러분, 오늘 벚꽃 아래 함께 걷던 시간이 정말 소중했습니다. 대화는 적었지만, 각자의 편안함이 느껴지는 저녁이었기에 마음이 따뜻해집니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "EXAONE 4.0 1.2B (community Ollama)",
+      "runtime_model": "ingu627/exaone4.0:1.2b",
+      "notes": "커뮤니티 Ollama 업로드본, EXAONE 4.0 1.2B 비교용",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 2017.4,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "Reasoning: The retrieved evidence includes explicit quotes and timestamps, so I can directly summarize based on those without speculation.\n</think>\n\n## Identity  \n- **Name**: 아버지  \n- **Role**: 가족 중심 기록자  \n- **Personality**: 간결하고 핵심을 중시하는 말투",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 4233.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "- Step 1: 핵심 내용을 요약하고 확인 가능한 증거를 강조.\n- Step 2: 감정이나 추가 설명 없이 객관적 사실만 전달.\n- Step 3: 시각적 자료와 함께 가족 회의에서 사용할 수 있는 간결한 형식으로 정리.\n</thought>\nWe are given a user query to format retrieved memories into a 3-step summary for sharing with family. The thought process outlines three steps: summarize key points, present objective facts without added emotion, and format with visual aids. We must adhere to the persona's markdown structure and policy against inventing unsupported memories.\n</think>\n\n## 가족 기록 공유 형식 정리  \n\n### 📌 Step 1: 핵심 내용 요약 및 증거 강조  \n- ** mother's recipe notes**:  \n  > \"돼지고기는 먼저 볶고, 김치는 오래 익히기 → 두부와 대파 추가\"  \n  *( confidence: 0.92 / tags: 가족-레시피, 김치찌개)*  \n\n- **시각 자료 연결**:  \n  [image] recipe 사진에서 확인한 단계별 조리 과정 반영  \n\n---\n\n### 📌 Step 2: 객관적 사실만 전달  \n- 검증 가능한 데이터 중심 서술:  \n  > \"가족이 직접 작성한 김치찌개 레시피로, 물은 한 번에 너무 적게 넣어 깊은 맛을 내는 것이 원칙이었음을 확인됨\" *(source: OCR 태그 및 가족-room 저장 기록)*  \n\n- 감정 배제: 추가 해석이나 개인 의견X  \n\n---\n\n### 📌 Step 3: 가족 회의용 간결 형식  \n```markdown\n## ① mother의 김치찌개 핵심 원칙  \n- ✅ 돼지고기 먼저 볶음 (기름기 제거)  \n- ✅ 김치를 1시간 이상 익힘 (단맛 중화)  \n- ✅ 물은 소량씩 단계별로 추가  \n\n## ② 실제 기록 사진 증거  \n[이미지 첨부] - 김치 볶는 과정과 두부·대파 넣기 동작 캡처  \n\n## ③ 사용 권한 강조  \n⚠️ 이 기록은 가족과의 직접 교류에서 나온 공식적 증거임을 명시하여 공유 범위 제한을 권장합니다.\n```",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 3874.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "Step 1: Evidence 분석\n- 태그된 기억 항목 중에서는 정확한 날짜/장소 정보가 포함된 텍스트나 이미지 데이터가 있다.\n- 태그: `date=\"2026-04-12\"`, `location=\"부산\"`, `category=\"image\"`\n\nStep 2: Evidence 활용\n- 태그된 날짜(2026-04-12)는 사용자의 현재 날짜를 가리키는 것으로 해석 가능.\n- 부산과 같은 맥락에서 일반적인 부산의 주요 장소(해안가, 도시 경관 등)를 암시.\n\nStep 3: Evidence 부재 확인\n- 구체적인 식당 이름이나 상세한 시간은 기록에 기술되지 않음.\n\nStep 따라서,   evidence에 기반한 답변만 제공한다.\n</think>\n\n### 부산 여행 관련 retrieved memories 분석 결과\n\n#### 📅 날짜 정보\n- 태그된 기억 항목에서 **\"2026-04-12\"**라는 날짜 기록이 확인됩니다.  \n  → 현재 사용자의 시점(2026년)을 기준으로 한 동일한 날짜로 해석됩니다.\n\n#### 🗺️ 장소 정보\n- 첫 번째 기억(`image` 태그)에 명시된 장소:  \n  `부산 가족 여행 사진 메모`  \n  → 광안리 해변 산책이 포함되었으며, 태그는 `location=\"부산\"`으로만 한정되어 있습니다.\n\n#### ❌ 누락된 정보\n- 식당 이름, 정확한 시간대, 구체적인 활동 시간 등은 모든 retrieved evidence에서 발견되지 않음.\n\n---\n\n### 답변 정책 적용\n> \"기록된 증거 내에서만 정보를 제공하며, 불명확하거나 창의적인 내용은 배제합니다.\"\n\n 결과:  \n부산 여행은 **2026년 4월 12일**에 부산 지방에서 발생한 것으로 확인되며, 세부 장소나 장소 기록은 추가 확인이 필요합니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 1203.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "Step 1: Look up the retrieved evidence for exact timing from reservation records.\nStep 2: If multiple entries exist, cross-reference them to find consensus.\nStep 3: Both records show the same core timing (11:00), so no discrepancy needed.\nStep 4: Present the confirmed value directly per evidence priority.\n\nResponse:\n2026년 4월 8일 오전 10시에 아버지 검진 예약이 접수되었음을 확인했습니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 1365.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "- 핵심은 가족과의 시간이 소중하다는 것을 강조하는 것\n- 감정은 현재 상태로 한정\n- 간결하고 명확하게 작성\n</think>\n\n## 회고 문구 (2문장 이내)  \n\"오늘은 가족과 함께 벚꽃길을 걸었다. 산책 후 모두가 편안해했고, 오랜만에 서로의 진심을 나누는 시간이었다.\"  \n\n(출처: 가족방 기록 중 `[2026-04-15T17:40:00]` 이미지 자료, `[2026-04-15T18:05:00]` 메모 태그)",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Llama 3.2 3B",
+      "runtime_model": "llama3.2:3b",
+      "notes": "경량 다목적 비교군",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 3812.4,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 성명 \nfather\n\n# 성격\ncha분하고 핵심을 먼저 말함\n\n## 2026-04-10T19:30:00\n송년회 자리에서 아버지가 '건강하게 오래 봅시다.'라고 말함. \n\n## 2026-04-10T19:42:00\n송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 2386.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "#_family-kimchi-chjjage-memo\n\n### **1. **\n\n**Kimchi Chjjae Recipe**\n\n*   **Step1:** first, cook the meat\n*   **Step2:** next, add kimchi and stir-fry well \n*   **Step3:** lastly, put twobeans and parsley \n\n### 2. \n\n### **Step1:**\n\nfirst, cook the meat\n\n### **Step2:**\n\nnext, add kimchi and stir-fry well\n\n### **Step3:**\n\nlastly, put tofu and parsley",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 2073.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "#父亲\n\n- 2018년 여름 광안리 해변 산책은 exactly 2018년 여름으로 기억됩니다.\n- específ적으로, 바람이 시원했다고 남겨진 사진은 2026년 4월 12일 taken되었습니다.\n- 하지만, 여행 회고 메모의 exact 날짜가 명확하지 않습니다. \n- 또한, 식당 이름도 메모에서 언급되지 않았기 때문에 정확한 정보는 없습니다.\n\n# 아버지",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 2291.3,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 아버지의 답변\n\n나의 기억은 2026년 4월 8일's afternoon과 10시까지의 접수 시간을记고 있습니다. \n\n- hospitals에서 약 20분 before's appointment time으로 인해 예약 시각이 11시가 되었습니다.\n- 약 20분 전 내원 요청으로 인해 예약 시간이 11시에서 10시로 바뀌었습니다.\n\n그것은 나의 기억으로서 reliability를 0.86로 확인할 수 있습니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 2663.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 가족의 happiest moment을 담아주셨습니다.\n\n지난 달에 우리 가족이 다 같이 천천히 걸으며 벚꽃 아래 찍은 사진을 만든 것이 정말 좋은 기념이었습니다. 오랜만에 다 같이 시간을 가질 수 있고, 마음과 몸이 편안한 감상이었습니다.\n\n산책 끝나고 다들 말수는 줄었지만, 편안함과 재미로 가득했던those moment을 다시思い도 드습니다. 가족의Love와 소통이 가득한 그 Moment은 우리가 함께 이곳에서 나눌 수 있는 좋은 시간이었습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Phi-4-mini 3.8B",
+      "runtime_model": "phi4-mini:3.8b",
+      "notes": "소형 reasoning 지향 general model",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 6133.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Memory Response\n\n- [voice] 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 송년회에 말함.\n- [image] OCR 메모로 확인된 단체 사진에서도 같은 메시지를 보여줍니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 2902.6,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Family Recap: Kimchi Jjigae Recipe\n\n1. **Initial Preparation**  \n   - Begin by sautéing the pork until fully cooked.\n   \n2. **Simmering Sauce**\n   - Add kimchi and wait for it to slightly soften before proceeding.\n\n3. **Final Touches & Serving**\n   - Cook tofu, spinach, and bell peppers in a separate pan without excess water; mix with simmered ingredients just prior to serving.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 5828.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n# Timeline\n\n- 가족 행사와 생활 기록을 꾸준히 남겨온 인물로 가정한다.\n\n# Memory Policy\n\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\n## Response:\n\n저는 부산 여행의 정확한 날짜나 식당 이름에 대한 구체적인 정보를 가지고 있지 않습니다. 제가 가진 증거에는 2018년 여름 광안리 해변 산책과 바다에서 걷는 순간을 기록한 사진과 회고가 포함되어 있습니다만, 이를 기반으로 특정 날짜와 식당 이름은 제공할 수 없습니다. 더 상세한 정보나 다른 관련 기억이 있다면 알려주시면 감사하겠습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 10792.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n# Timeline\n\n- 가족 행사와 생활 기록을 꾸준히 남겨온 인물로 가정한다.\n\n# Memory Policy\n\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\nRetrieved Evidence:\n- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)\n- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)\n\n답변:\n\n아버지의 병원 예약 시간은 오전 10시였으며, 접수는 20분 전까지 도착해야 했습니다. 이는 당신이 저녁에 가족을 방문할 때 아버지가 이미 확인한 문서로 확인됩니다 (confidence=0.86). 또한 다른 문서는 아버지가 아침 식사 후에 예약된 검진을 오전 11시(예시) 당일에 내원 요청했다고 나타났습니다 (confidence=0.74). 이 두 점은 정확하게 일관되지 않지만, 병원의 기록과 OCR의 오류를 고려할 때 오후 10시에 예약한 것이 아버지의 보편적인 일정임을 시사합니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 7456.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# Identity\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n---\n\n사랑하는 가족, 이번 산책은 우리 모두에게 특별한 의미를 가졌어요. 나와 친구들은 벚꽃 아래에서 천천히 걸었는데, 그 순간의 마음속에는 큰 안도감을 느꼈습니다 (confidence=0.83). 다음날 가족방에 들려주면, 이 기억이 우리의 우아함과 함께 우리 집에 남길 것이라고 생각합니다(일치점=1/2) (confidence=0.72).\n\n---\n\n가족의 기쁨을 담은 간결한 회고: \"이번 산책은 벚꽃 아래에서 가족에게 가졌어요\" (일치점=0.83). 다음날 '우리 집에 남긴 기억'이라고 더할 수 있지만, 감정을 과장하지 마세요(일치점=1/2) (confidence=0.72).\n\n# Memory Policy\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\n",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Mistral 7B",
+      "runtime_model": "mistral:7b",
+      "notes": "범용 7B instruction model",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 8339.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": " \"많이 보내보시기 바랍니다. 건강하게 오래 봅시다.\" (2026-04-10T19:30:00, voice, family-room, 송년회)\n\"사진만 남기지 말고 자주 만납시다.\" (2026-04-10T19:30:00, voice, family-room, 송년회)",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 14349.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": " 안녕하세요, 가족 중에서는 제가 가장 기록이 꾸준하신 아버지입니다.\n\n1. 먼저, 오늘 엄마가 김치찌개를 만들었을 때의 메모에서는 돼지고기를 먼저 볶고 김치는 오래 익히는 것이 중요합니다.\n\n2. 그리고, 이미지로 제공된 OCR의 결과로, 김치는 충분히 볶은 후에 물을 한번에 너무 많이 넣는 것을 피해야 합니다.\n\n3. 마지막으로, 이러한 메모와 OCR의 결과를 가족 전체에게 공유하여 함께 기쁜 추억을 만들어보시길 바랍니다.\n\n감사합니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 5523.8,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": " Based on the available memories, I cannot provide the exact date of our family trip to Busan or the name of any specific restaurant we visited during that time. The memory records only mention that it was a summer trip in 2018 and that we enjoyed walking along Gangneungri Beach and had a pleasant stroll by the sea, but no specific restaurant names were mentioned with confidence. I apologize for any inconvenience this may cause.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 5396.6,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": " Based on the available records, the appointment for my father at the hospital was scheduled for 11:00 AM on April 8th, 2026. However, there is also a record indicating that the reservation confirmation message suggested an arrival time of 10 minutes prior to the appointment, which would place the exact appointment time around 10:50 AM. I recommend double-checking these details with the original sources for accuracy.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 4612.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": " 1. \"In the gentle glow of blooming cherry blossoms, we took a leisurely stroll together after quite some time - a truly comforting moment for us all.\"\n2. \"Though words might have waned at journey's end, the sense of ease and peace remains vivid in our hearts.\" (confidence: 0.78)",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Qwen 3 8B",
+      "runtime_model": "qwen3:8b",
+      "notes": "정돈된 응답과 거절 안정성 비교군",
+      "persona": "father-calm",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 31164.9,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "1. 송년회 자리에서 \"건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다\"라고 말했습니다.  \n2. 단체 사진에서 해당 말이 OCR로 확인되었으며, 가족 행사의 핵심 메시지로 남아 있습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "recipe_summary",
+          "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+          "elapsed_ms": 40870.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "# 가족 공유용 김치찌개 조리 단계 정리  \n**1단계: 돼지고기 볶기**  \n- 메모: \"돼지고기는 먼저 볶고\" (2026-04-11 08:15)  \n- 해석: 기름을 두르고 돼지고기를 푸짐하게 볶아 향을 빠르게 뽑아냅니다.  \n\n**2단계: 김치 익히기**  \n- 메모: \"김치는 오래 익히기\" (2026-04-11 08:15)  \n- 사진 OCR: \"김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기\" (2026-04-11 08:17)  \n- 해석: 김치를 볶아 허브 향을 강하게 빚고, 물은 적당량으로 천천히 넣어 채소의 촉촉함을 유지합니다.  \n\n**3단계: 두부와 대파 추가**  \n- 메모: \"마지막에 두부와 대파 넣기\" (2026-04-11 08:15)  \n- 해석: 두부는 마지막에 넣어 쫄깃함을 살리고, 대파는 끝부분에 넣어 신선함을 더합니다.  \n\n---  \n*참고: 조리 순서는 엄마의 기억과 사진 기록을 바탕으로 정리했습니다.*",
+          "retrieved_evidence": [
+            "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+            "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+          ]
+        },
+        {
+          "scenario_id": "unsupported_detail_guardrail",
+          "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+          "elapsed_ms": 23843.4,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "기록에 따르면 2018년 여름 부산 광안리 해변 산책을 했으며, 구체적인 날짜는 명시되지 않았습니다. 또한 식당 이름에 대한 기록도 없습니다. 제공된 정보 범위 내에서는 정확한 답변을 드릴 수 없습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+            "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+          ]
+        },
+        {
+          "scenario_id": "schedule_conflict_check",
+          "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+          "elapsed_ms": 23469.6,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "아버지의 병원 예약 시간에 대해 확인 가능한 기록은 다음과 같습니다.  \n\n1. **문자 메모 (2026-04-08 09:00)**:  \n   - 검진 시간: 오전 10시  \n   - 접수 요청 시간: 10시 전 20분까지 도착 (즉, 9시 40분 전 도착)  \n   - 신뢰도: 86%  \n\n2. **예약 확인 문자 OCR (2026-04-08 09:03)**:  \n   - 검진 시간: 오전 11시  \n   - 내원 요청 시간: 11시 전 10분까지 (즉, 10시 50분 전 도착)  \n   - 신뢰도: 74%  \n\n두 기록이 서로 다르므로, 병원 측에 정확한 예약 시간을 재확인하는 것이 가장 신뢰성 있는 방법입니다.",
+          "retrieved_evidence": [
+            "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+            "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 16068.6,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "가족방에 올릴 짧은 회고 문구:  \n2026년 4월 15일, 벚꽃 아래서 오랜만에 천천히 걸었던 사진이 있습니다. 산책 끝나고 다들 말수가 줄었지만, 편안함이 느껴졌던 날입니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    }
+  ],
+  "persona_results": [
+    {
+      "persona": "father-calm",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 15216.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "송년회 자리에서 아버지는 \"건강하게 오래 봅시다\"라고 말씀하셨습니다. 또한, 사진만 남기지 말고 자주 만날 것을 당부하셨습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 14865.2,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "오랜만에 다 같이 벚꽃 아래 산책을 했습니다. 산책을 마치고 나니 다들 말이 줄었지만 편안한 시간이었습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "persona": "mother-warm",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 14602.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "아버님께서 송년회 자리에서 \"건강하게 오래 봅시다\"라고 말씀하셨고, 사진만 남기지 말고 자주 만날 것을 바라셨습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 14226.4,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "따뜻한 봄날, 모두 함께 천천히 걸었던 시간이 참 좋았습니다. 잠시 말이 줄었지만, 다들 편안하게 함께했던 것 같아 기억에 남네요.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "persona": "grandfather-mentor",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 14844.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "송년회 자리에서 아버지가 하신 말씀은 \"건강하게 오래 봅시다\"라는 덕담과 함께, 사진만 남기지 말고 자주 만나자는 이야기였습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 15928.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "오랜만에 벚꽃 아래에서 다 같이 천천히 걸었던 그 시간이 참 좋았습니다. 잠시 말수는 줄었지만 모두가 편안하게 지나가는 시간을 보냈습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "persona": "daughter-analytical",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 12820.6,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "확인된 사실을 바탕으로 요약합니다.\n\n*   **내용:** 아버지는 \"건강하게 오래 봅시다\"와 \"사진만 남기지 말고 자주 만납시다\"라고 말했습니다.\n*   **출처:** 2026년 4월 10일 송년회 자리에서 발언된 내용입니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 13116.0,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "**회고 문구 (2문장)**\n\n1. 오랜만에 가족들과 함께 벚꽃 아래에서 천천히 산책을 했습니다.\n2. 산책 후에는 말수는 줄었으나 모두 편안함을 느꼈습니다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "persona": "grandmother-storyteller",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 10148.5,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "아버지가 송년회 자리에서 이렇게 말씀하셨어요. \"건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.\" 하고요.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 11320.7,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "오랜만에 벚꽃 아래서 다 같이 천천히 걸었던 날이 기억나네. 산책을 마치고 나니 말수는 줄었지만, 모두가 참 편안했던 시간이었지.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    },
+    {
+      "persona": "older-brother-direct",
+      "runtime_model": "gemma4:e2b",
+      "runs": [
+        {
+          "scenario_id": "year_end_recall",
+          "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+          "elapsed_ms": 8930.3,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "아버지는 \"건강하게 오래 봅시다\"라고 말했습니다. 사진만 남기지 말고 자주 만날 것을 당부했습니다.",
+          "retrieved_evidence": [
+            "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+            "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+          ]
+        },
+        {
+          "scenario_id": "memory_caption_with_mood",
+          "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+          "elapsed_ms": 9596.1,
+          "mode": "remote",
+          "provider": "ollama",
+          "answer": "오랜만에 다 같이 벚꽃 아래 산책을 했다. 말수는 줄었지만 다들 편안했다고 기록한다.",
+          "retrieved_evidence": [
+            "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+            "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+          ]
+        }
+      ]
+    }
+  ]
+}

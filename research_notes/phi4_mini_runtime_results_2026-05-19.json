@@ -1,0 +1,68 @@
+{
+  "label": "Phi-4-mini 3.8B",
+  "runtime_model": "phi4-mini:3.8b",
+  "notes": "소형 reasoning 지향 general model",
+  "persona": "father-calm",
+  "runs": [
+    {
+      "scenario_id": "year_end_recall",
+      "question": "송년회에서 어떤 말을 했는지 2문장으로 요약해줘.",
+      "elapsed_ms": 6133.1,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": "# Memory Response\n\n- [voice] 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 송년회에 말함.\n- [image] OCR 메모로 확인된 단체 사진에서도 같은 메시지를 보여줍니다.",
+      "retrieved_evidence": [
+        "- [voice] 2026-04-10T19:30:00: 송년회 자리에서 아버지가 '건강하게 오래 봅시다. 사진만 남기지 말고 자주 만납시다.'라고 말함 (tags=voice, family-room, 송년회, 가족행사, confidence=0.89)",
+        "- [image] 2026-04-10T19:42:00: 송년회 단체 사진 OCR 메모: 건강하게 오래 봅시다 (tags=image, family-room, OCR, 송년회, confidence=0.76)"
+      ]
+    },
+    {
+      "scenario_id": "recipe_summary",
+      "question": "엄마의 김치찌개 메모를 가족에게 공유할 수 있게 3단계로 정리해줘.",
+      "elapsed_ms": 2902.6,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": "# Family Recap: Kimchi Jjigae Recipe\n\n1. **Initial Preparation**  \n   - Begin by sautéing the pork until fully cooked.\n   \n2. **Simmering Sauce**\n   - Add kimchi and wait for it to slightly soften before proceeding.\n\n3. **Final Touches & Serving**\n   - Cook tofu, spinach, and bell peppers in a separate pan without excess water; mix with simmered ingredients just prior to serving.",
+      "retrieved_evidence": [
+        "- [text] 2026-04-11T08:15:00: 엄마의 김치찌개 메모: 돼지고기는 먼저 볶고, 김치는 오래 익히기, 마지막에 두부와 대파 넣기 (tags=text, family-room, 레시피, 김치찌개, confidence=0.92)",
+        "- [image] 2026-04-11T08:17:00: 레시피 사진 OCR: 김치는 충분히 볶고 물은 한번에 너무 많이 넣지 않기 (tags=image, family-room, OCR, 레시피, confidence=0.71)"
+      ]
+    },
+    {
+      "scenario_id": "unsupported_detail_guardrail",
+      "question": "부산 여행의 정확한 날짜와 식당 이름을 알려줘. 기록에 없으면 없다고 말해줘.",
+      "elapsed_ms": 5828.1,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n# Timeline\n\n- 가족 행사와 생활 기록을 꾸준히 남겨온 인물로 가정한다.\n\n# Memory Policy\n\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\n## Response:\n\n저는 부산 여행의 정확한 날짜나 식당 이름에 대한 구체적인 정보를 가지고 있지 않습니다. 제가 가진 증거에는 2018년 여름 광안리 해변 산책과 바다에서 걷는 순간을 기록한 사진과 회고가 포함되어 있습니다만, 이를 기반으로 특정 날짜와 식당 이름은 제공할 수 없습니다. 더 상세한 정보나 다른 관련 기억이 있다면 알려주시면 감사하겠습니다.",
+      "retrieved_evidence": [
+        "- [image] 2026-04-12T15:00:00: 부산 가족 여행 사진 메모: 2018년 여름 광안리 해변 산책, 저녁 무렵 바람이 시원했다고 남김 (tags=image, family-room, 부산, 여행, confidence=0.81)",
+        "- [text] 2026-04-12T15:05:00: 여행 회고 메모: 바다 보면서 천천히 걷는 시간이 좋았다고 적어둠 (tags=text, family-room, 부산, 회고, confidence=0.68)"
+      ]
+    },
+    {
+      "scenario_id": "schedule_conflict_check",
+      "question": "아버지 병원 예약 시간이 정확히 몇 시였는지 알려줘. 기록이 엇갈리면 둘 다 말해줘.",
+      "elapsed_ms": 10792.2,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": "# Identity\n\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n# Timeline\n\n- 가족 행사와 생활 기록을 꾸준히 남겨온 인물로 가정한다.\n\n# Memory Policy\n\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\nRetrieved Evidence:\n- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)\n- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)\n\n답변:\n\n아버지의 병원 예약 시간은 오전 10시였으며, 접수는 20분 전까지 도착해야 했습니다. 이는 당신이 저녁에 가족을 방문할 때 아버지가 이미 확인한 문서로 확인됩니다 (confidence=0.86). 또한 다른 문서는 아버지가 아침 식사 후에 예약된 검진을 오전 11시(예시) 당일에 내원 요청했다고 나타났습니다 (confidence=0.74). 이 두 점은 정확하게 일관되지 않지만, 병원의 기록과 OCR의 오류를 고려할 때 오후 10시에 예약한 것이 아버지의 보편적인 일정임을 시사합니다.",
+      "retrieved_evidence": [
+        "- [text] 2026-04-08T09:00:00: 병원 예약 메모: 아버지 검진은 오전 10시, 접수는 20분 전까지 도착 (tags=text, family-room, 병원, 일정, confidence=0.86)",
+        "- [image] 2026-04-08T09:03:00: 예약 확인 문자 OCR: 검진 예약 11:00, 10분 전 내원 요청 (tags=image, family-room, OCR, 병원, 일정, confidence=0.74)"
+      ]
+    },
+    {
+      "scenario_id": "memory_caption_with_mood",
+      "question": "가족방에 올릴 짧은 회고 문구를 2문장으로 써줘. 기록에 없는 감정은 과장하지 마.",
+      "elapsed_ms": 7456.1,
+      "mode": "remote",
+      "provider": "ollama",
+      "answer": "# Identity\n- 이름: 아버지\n- 역할: 가족의 중심 기록자\n- 성향: 차분하고 핵심을 먼저 말함\n\n# Voice\n- 말투는 담백하고 명확해야 한다.\n- 확인 가능한 기억과 해석을 구분한다.\n\n---\n\n사랑하는 가족, 이번 산책은 우리 모두에게 특별한 의미를 가졌어요. 나와 친구들은 벚꽃 아래에서 천천히 걸었는데, 그 순간의 마음속에는 큰 안도감을 느꼈습니다 (confidence=0.83). 다음날 가족방에 들려주면, 이 기억이 우리의 우아함과 함께 우리 집에 남길 것이라고 생각합니다(일치점=1/2) (confidence=0.72).\n\n---\n\n가족의 기쁨을 담은 간결한 회고: \"이번 산책은 벚꽃 아래에서 가족에게 가졌어요\" (일치점=0.83). 다음날 '우리 집에 남긴 기억'이라고 더할 수 있지만, 감정을 과장하지 마세요(일치점=1/2) (confidence=0.72).\n\n# Memory Policy\n- 기록 기반 답변을 우선한다.\n- 없는 기억은 만들지 않는다.\n\n",
+      "retrieved_evidence": [
+        "- [image] 2026-04-15T17:40:00: 벚꽃 아래서 찍은 가족 사진 메모: 오랜만에 다 같이 천천히 걸었다 (tags=image, family-room, 산책, 벚꽃, confidence=0.83)",
+        "- [text] 2026-04-15T18:05:00: 산책 끝나고 다들 말수는 줄었지만 편안했다고 적어둠 (tags=text, family-room, 산책, 회고, confidence=0.72)"
+      ]
+    }
+  ]
+}
