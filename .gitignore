@@ -39,3 +39,14 @@ backend/app/storage/
 backend/ambient_legacy_demo.db
 .ollama-home/
 .ollama-models/
+
+# ML 대용량 산출물 (데이터셋/어댑터/모델 클론 — 리포엔 스크립트·결과 md만 커밋)
+backend/finetune/
+external/
+
+# 세션 스크래치
+_workspace/
+
+# 루트 핸드오프 아카이브 (md 원본은 트래킹, zip/pdf 사본은 제외)
+/*.zip
+/*.pdf
