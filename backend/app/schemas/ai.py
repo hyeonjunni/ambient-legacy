@@ -12,6 +12,10 @@ class AIDemoChatRequest(BaseModel):
 class AIDemoChatResponse(BaseModel):
     answer: str
     answer_source: str
+    # 규칙 게이트 메타 (rule_gate 경로: REFUSE/CLARIFY/CONFLICT/NO_RECORD, 게이트 조치)
+    gate_route: str | None = None
+    gate_detail: str | None = None
+    gate_action: str | None = None
     inference_source: str
     provider_name: str
     provider_mode: str
@@ -51,6 +55,7 @@ class AIRuntimeStatusResponse(BaseModel):
     gemma_endpoint_configured: bool
     exaone_endpoint_configured: bool
     prefer_ollama_for_gemma: bool
+    prefer_ollama_for_exaone: bool
     ollama_base_url: str
     cloud_sql_connector_enabled: bool
     gcs_media_storage_enabled: bool

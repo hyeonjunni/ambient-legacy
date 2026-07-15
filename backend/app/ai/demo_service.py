@@ -230,13 +230,16 @@ def build_demo_chat_response(
         }
 
     provider = get_provider_for_model(model_id)
-    provider_response = provider.generate(
-        InferenceRequest(
-            model_id=model_id,
-            user_query=query,
-            prompt_package=prompt_package,
-        )
+    request = InferenceRequest(
+        model_id=model_id,
+        user_query=query,
+        prompt_package=prompt_package,
     )
+    provider_response = provider.generate(request)
+    # 소형 모델 빈응답 완화: 정상 모드인데 출력이 비면 1회 재생성 (v3 실측: e4b 빈응답 0.37→0)
+    if provider_response.mode not in {"mock", "unconfigured", "error"} and \
+            len((provider_response.output_text or "").strip()) < 5:
+        provider_response = provider.generate(request)
     fallback_answer = render_demo_answer(
         persona_id=persona_id,
         evidence_lines=prompt_package["retrieved_evidence"],
