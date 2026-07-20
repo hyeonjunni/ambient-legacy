@@ -1,155 +1,227 @@
 # Next Agent Handoff
 
-## 프로젝트 목적
+Last updated: 2026-07-20
 
-Ambient Legacy는 가족의 음성, 텍스트, 이미지, 영상을 디지털 유산으로 저장하고,  
-향후 검색/RAG/페르소나 기반 질의응답으로 확장하려는 모바일 앱 + FastAPI 백엔드 프로젝트다.
+## Repository State
 
-현재는 `목요일 데모 시현`을 우선 목표로 하여,  
-`모델 선택 + 페르소나 선택 + 가족 기록 기반 AI 데모 응답` 흐름을 끊기지 않게 만드는 방향으로 구현이 진행되었다.
+- Repository: `/Users/hyeonjun/ambient_legacy`
+- Branch reviewed: `main`
+- Reviewed commit: `09fa934`
+- At review time, local `main` and upstream `main` pointed to the same commit.
+- The April/May handoff previously in this file was obsolete. This document supersedes it.
 
-## 현재 구현 상태
+## Product And Current Direction
 
-### 앱
+Ambient Legacy stores family text, image, video, and audio-related records and answers questions using those records as evidence.
 
-파일:
+The current LLM direction is no longer "make a large or fine-tuned model control factual safety." The intended architecture is:
 
-- [app/App.js](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/app/App.js)
+1. Retrieval finds relevant family-room records.
+2. A deterministic input gate decides whether the records can answer the question.
+3. The LLM is called only for allowed generation paths.
+4. A deterministic output gate removes unsupported hard atoms and internal-text leaks.
+5. The app renders the backend's gate result as trust UI.
 
-완료:
+Fine-tuning remains useful for tone and formatting. It must not be the only factual-safety mechanism.
 
-- 로그인 / 데모 로그인
-- 가족방 생성 및 입장
-- 텍스트/이미지/영상 업로드 메타데이터 저장
-- 저장소 탭에서 업로드 목록 조회
-- `Chat` 탭에서 모델 선택 UI
-- `Chat` 탭에서 페르소나 선택 UI
-- `Chat` 탭에서 추천 질문 선택
-- `Chat` 탭에서 `데모 데이터 준비` 버튼
-- `Chat` 탭에서 `/api/v1/ai/chat-demo` 호출
-- 백엔드에서 내려온 provider 상태 / evidence 표시
-- `/api/v1/ai/models`, `/api/v1/ai/personas` 기반 동적 옵션 로딩
+## Current Code Structure
 
-### 백엔드
+### Backend AI
 
-중요 파일:
+- `backend/app/ai/demo_service.py`: retrieval and chat orchestration
+- `backend/app/ai/gates/answer_router.py`: input routes (`ANSWER`, `REFUSE`, `CLARIFY`, `CONFLICT`, `NO_RECORD`)
+- `backend/app/ai/gates/entity_index.py`: room-scoped person/place dictionary
+- `backend/app/ai/gates/output_gate.py`: leak filtering and output validation
+- `backend/app/ai/gates/textrules.py`: normalization, cue matching, hard-atom extraction
+- `backend/app/ai/model_registry.py`: Gemma, EXAONE, Qwen and DGX model profiles
+- `backend/app/ai/provider_factory.py`: Gemma, EXAONE and Ollama provider selection
+- `backend/app/ai/prompt_builder.py`: provider prompt package
+- `backend/app/api/routes/ai.py`: AI API routes
+- `backend/app/schemas/ai.py`: AI request/response schemas
 
-- [backend/app/api/routes/ai.py](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/api/routes/ai.py)
-- [backend/app/ai/demo_service.py](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/ai/demo_service.py)
-- [backend/app/ai/model_registry.py](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/ai/model_registry.py)
-- [backend/app/ai/provider_factory.py](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/ai/provider_factory.py)
-- [backend/app/ai/providers](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/app/ai/providers)
+### App
 
-완료:
+- `app/App.js`: AI model/persona selection, chat request, gate card and badge rendering
 
-- `GET /api/v1/ai/models`
-- `GET /api/v1/ai/personas`
-- `GET /api/v1/ai/runtime-status`
-- `POST /api/v1/ai/demo-bootstrap`
-- `POST /api/v1/ai/chat-demo`
-- persona markdown pack 로드
-- room upload 기반 단순 retrieval
-- prompt package 조립
-- model_id 기준 provider adapter 선택
-- Gemma / EXAONE / mock provider scaffold
-- mock inference server 스크립트 제공
+### Verification
 
-### 문서
+- `backend/scripts/selftest_gates.py`: deterministic gate checks
+- `backend/tests/golden_set.json`: 30-question routing set
+- `backend/scripts/e2e_gate_demo.py`: FastAPI/TestClient integration checks
+- `backend/scripts/check_gates.py`: aggregate command
 
-- [backend/docs/thursday_demo_scope.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/docs/thursday_demo_scope.md)
-- [backend/docs/demo_runbook.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/docs/demo_runbook.md)
-- [backend/docs/provider_contracts.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/docs/provider_contracts.md)
-- [backend/docs/ondevice_hybrid_architecture.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/docs/ondevice_hybrid_architecture.md)
+## Current Strengths
 
-## 데모 시연에 필요한 핵심 흐름
+- Model adapters, registry, prompt assembly and gate logic are separated.
+- Input and output gates are deterministic and testable without a live model.
+- `REFUSE`, `CONFLICT` and `NO_RECORD` paths can answer without model generation.
+- Gate route/action values reach the app and drive the trust UI.
+- The research history supports using a small model plus a gate for routine responses, with larger models reserved for higher-quality rendering after the same gate.
 
-1. 로그인 또는 데모 로그인
-2. `Chat` 탭 이동
-3. `데모 데이터 준비` 클릭
-4. 모델 선택
-5. 페르소나 선택
-6. 추천 질문 클릭
-7. `전송`
-8. 응답 / provider 상태 / evidence 확인
-9. 필요 시 `Storage` 탭에서 샘플 기록 확인
+## Review Findings That Must Be Addressed
 
-## 가장 먼저 확인할 것
+### P1. Diagnostic data bypasses the output gate
 
-### 1. backend 실행
+`build_demo_chat_response()` returns `provider_output_preview`, `prompt_package`, and `persona_preview`. This can expose raw model output, system instructions, persona markdown, tags, confidence values, or evidence formatting even when the final answer was filtered.
 
-필요 문서:
+Required direction:
 
-- [backend/docs/demo_runbook.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/docs/demo_runbook.md)
+- Remove these fields from the normal client response.
+- If diagnostics are still needed, expose them only through an explicit development-only schema/route.
+- Never return raw rejected provider output from the normal API.
 
-### 2. mock server 실행
+### P1. User query is treated as evidence
 
-파일:
+The output gate currently validates against `evidence + query`. A user can place an unsupported date or place in the question and cause the model's repeated claim to pass.
 
-- [backend/scripts/mock_model_server.py](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/scripts/mock_model_server.py)
+Required direction:
 
-### 3. `.env` 확인
+- Evidence validation must use retrieved evidence only.
+- Values appearing only in the query are claims to validate, not trusted facts.
+- Add regression cases for unsupported query-supplied dates, numbers, people and places.
 
-파일:
+### P1. Semantic hallucinations without hard atoms can pass
 
-- [backend/.env.example](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/ambient-legacy/backend/.env.example)
+The output gate checks numbers, quoted text and selected entity patterns. A sentence such as "아버지는 막내를 가장 사랑했다고 기록되어 있습니다" can pass even when no record supports it.
 
-확인할 값:
+Required direction:
 
-- `GEMMA_ENDPOINT_URL`
-- `EXAONE_ENDPOINT_URL`
-- `AI_PROVIDER_TIMEOUT_SECONDS`
+- Split questions into `FACT`, `SUMMARY`, and `CREATIVE` policies.
+- Render closed factual answers from a structured fact-sheet when practical.
+- Require source IDs per factual sentence in summary output.
+- Do not claim that every sentence was grounded when only hard atoms were checked.
 
-## 아직 미완료인 부분
+### P1. Conflict detection checks only the first two matching chunks
 
-### 1. 실제 모델 런타임 연결
+A sequence such as `10시 / 10시 / 11시` currently routes to `ANSWER` instead of `CONFLICT`.
 
-현재 provider adapter는 endpoint 계약만 정리된 상태다.  
-실제 Gemma 또는 EXAONE 런타임과의 payload 세부 형식은 환경에 맞게 맞춰야 한다.
+Required direction:
 
-우선순위:
+- Compare normalized value sets across all relevant chunks.
+- Cover time first, then date, amount/count, person and place conflicts.
+- Keep source IDs for every conflicting value.
 
-- `GemmaProvider.build_payload()`
-- `ExaoneProvider.build_payload()`
+### P2. CLARIFY rewrite can silently change intent
 
-### 2. OCR/STT 실데이터 연동
+The LLM rewrite is accepted using only length and string-difference checks. It can replace an ambiguous question with an unrelated answerable question.
 
-지금 retrieval evidence는 업로드 `title + description` 기반이다.  
-향후에는 OCR/STT 결과를 별도 메타데이터로 저장하고, retrieval에 포함시켜야 한다.
+Required direction:
 
-### 3. 앱 분리 리팩터링
+- Prefer deterministic spelling normalization and retrieval synonyms.
+- Reject rewrites that add/change people, places, dates, numbers, negation or question type.
+- For nontrivial semantic rewrites, ask the user to confirm instead of silently applying them.
 
-현재 `App.js` 단일 파일이 매우 크다.  
-데모 직후에는 아래로 분리하는 것이 좋다.
+### P2. One-command E2E is not reproducible from requirements
 
-- `screens/ChatScreen.js`
-- `screens/HomeScreen.js`
-- `hooks/useAIOptions.js`
-- `services/api.js`
+`backend/scripts/check_gates.py` passes the unit and golden-set stages but the E2E stage fails because `httpx` is not in `backend/requirements.txt`. The wrapper also hides stderr and reports only `?`.
 
-## 다음 작업 추천 순서
+Required direction:
 
-1. backend + mock server + app를 실제로 한 번 띄워 end-to-end 확인
-2. `demo-bootstrap` 후 `Storage` 탭 데이터 반영 상태 확인
-3. Gemma 또는 EXAONE 한쪽 실제 endpoint 연결
-4. OCR/STT 메타데이터 저장 구조 추가
-5. `App.js` 분리
+- Add a compatible pinned `httpx` dependency.
+- Include stderr in failed child-process reports.
+- Make `python backend/scripts/check_gates.py` pass in the project virtual environment.
 
-## 주의사항
+### P2. Added personas are not registered
 
-- 현재 환경에서는 `fastapi`가 셸에 설치되어 있지 않아, 이 작업 중 전체 서버 실행 검증은 완료되지 않았다.
-- provider endpoint가 없으면 `provider_mode`는 `unconfigured` 또는 `mock`으로 떨어진다.
-- 이 경우에도 데모 응답은 fallback answer로 유지되도록 설계되어 있다.
+`daughter-analytical`, `grandmother-storyteller`, and `older-brother-direct` assets exist but are absent from `PERSONA_PACKS` and `PERSONA_SUMMARIES`, so the API/app cannot select them.
 
-## 개인연구록 관련
+This is separate from gate safety. Wire it only after the Phase 0 safety patch unless specifically requested.
 
-연구록 초안 파일:
+## Gate Strengthening Target
 
-- [research_notes/personal_research_log_2026-04-29.md](/Users/hyeonjun/Documents/Codex/2026-04-28/files-mentioned-by-the-user-01/research_notes/personal_research_log_2026-04-29.md)
+The preferred final flow is:
 
-현재 구현 반영 사항:
+```text
+query
+  -> hybrid retrieval
+  -> intent policy (FACT / SUMMARY / CREATIVE)
+  -> evidence-only fact-sheet with source IDs
+  -> answerability and full-set conflict checks
+  -> template answer or constrained LLM generation
+  -> per-sentence source validation
+  -> public response without diagnostic internals
+```
 
-- model registry
-- persona markdown pack
-- provider adapter 구조
-- app의 모델/페르소나 선택 UI
-- AI demo API 및 demo-bootstrap
+### FACT
+
+- Extract required slots such as subject, predicate, date, time, amount, person and place.
+- If every required slot is supported and non-conflicting, prefer deterministic rendering.
+- If a slot is absent, return `REFUSE`.
+- If supported values conflict, return `CONFLICT` with all relevant sources.
+
+### SUMMARY
+
+- Give the model a fact-sheet or source-labelled evidence.
+- Require source IDs on factual sentences.
+- Drop or downgrade sentences with absent/invalid source IDs.
+- A semantic verifier may be advisory, but it must not be the sole safety controller.
+
+### CREATIVE
+
+- Separate recorded facts from generated wording.
+- Validate any factual reference against evidence.
+- Label the rest as generated wording rather than fully grounded fact.
+- Do not show the current "all sentences verified" badge for this route.
+
+## Claude Implementation Instruction
+
+Claude should implement **Phase 0 only** as the next bounded change. Do not combine it with embedding retrieval, DB schema work, OCR/STT, model training, or an `App.js` refactor.
+
+### Phase 0 scope
+
+1. Write failing regression tests for:
+   - a date present only in the user query;
+   - a named place present only in the user query;
+   - an unsupported semantic claim without numbers or named-place suffixes;
+   - a time conflict present only in the third chunk;
+   - raw provider/system/persona data absent from the public response;
+   - provider failure producing an explicit safe status instead of an apparently verified answer.
+2. Remove the user query from the output gate's trusted source.
+3. Detect time conflicts across all relevant chunks.
+4. Remove or development-gate `provider_output_preview`, `prompt_package`, and `persona_preview` from the public response schema.
+5. Make provider fallback explicit and safe. Do not return a generic architecture description as if it answered the user's question.
+6. Change the app badge copy so it describes the validation actually performed.
+7. Add/pin `httpx`, improve failed E2E diagnostics, and run the full gate command.
+
+### Phase 0 constraints
+
+- Preserve existing family-room, upload, authentication and provider selection behavior.
+- Do not trust query-supplied values as evidence.
+- Do not introduce an LLM judge as a replacement for deterministic controls.
+- Do not broaden changes beyond the files needed for Phase 0.
+- Keep development diagnostics separate from the public response contract.
+- Add tests before or with each behavior change.
+
+### Phase 0 completion criteria
+
+- Existing gate tests and golden-set checks still pass, except where expectations must become safer.
+- New adversarial tests pass.
+- `python backend/scripts/check_gates.py` exits with code 0 in the repository virtual environment.
+- The public chat response contains no raw provider output, prompt instructions, persona markdown, tags or confidence diagnostics.
+- `10시 / 10시 / 11시` returns `CONFLICT`.
+- Query-only `7월 15일` and `해운대식당` cannot pass as grounded facts.
+- Provider error/unconfigured paths are visibly non-verified and do not fabricate a normal answer.
+- `git diff --check` passes.
+
+After Phase 0, stop and report changed files, test output, remaining limitations and any response-schema migration impact. Do not start fact-sheet or hybrid retrieval work without a separate decision.
+
+## Planned Follow-Up Phases
+
+1. Phase 1: `FACT / SUMMARY / CREATIVE` policy split and honest UI states.
+2. Phase 2: source-labelled fact-sheet and citation contract.
+3. Phase 3: structured `memory_facts` with extraction provenance.
+4. Phase 4: hybrid keyword/embedding retrieval and reranking.
+5. Phase 5: OCR/STT ingestion into the same provenance model.
+
+## Canonical Documents
+
+Read these before changing the gate:
+
+- `AGENTS.md`
+- `HALLUCINATION_GATE_TEAM_BRIEF_2026-07-15.md`
+- `HALLUCINATION_GATE_PLAN.md`
+- `research_notes/gate_ab_report_2026-07-12.md`
+- `research_notes/gate_v3_comparison.md`
+- `research_notes/dgx_qwen32b_finetune_run_2026-06-20.md`
+
+Older `*_MEMORY*.md`, April/May handoffs and research logs are historical evidence, not current implementation instructions.
