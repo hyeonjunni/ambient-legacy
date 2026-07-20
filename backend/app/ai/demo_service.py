@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -168,25 +167,14 @@ def load_room_entity_sources(db: Session, room_id: str) -> tuple[list[str], list
     return member_names, record_texts
 
 
-def render_demo_answer(persona_id: str, evidence_lines: Iterable[str], query: str, placement: str) -> str:
-    evidence_list = list(evidence_lines)
-    if evidence_list and evidence_list[0] != "- 검색된 개인 또는 가족 기록이 없습니다.":
-        lead = "현재 가족 기록에서 확인되는 근거를 바탕으로 정리하면, "
-    else:
-        lead = "현재 가족방에서 바로 연결된 기록은 적지만, 구조상으로는 "
+# Phase 0: 프로바이더 실패는 '답변인 척'하지 않는다 — 실패를 밝히고 기록 원문만 보여준다.
+PROVIDER_DOWN_TMPL = ("죄송합니다. 지금 모델 응답을 받지 못해 새 답변을 만들 수 없습니다. "
+                      "지어내는 대신 남아 있는 기록 원문을 그대로 보여드립니다: {quotes}")
 
-    if persona_id == "mother-warm":
-        body = "조금 더 따뜻하게 맥락을 설명하고, 기록으로 확인되는 사실과 해석을 구분해 답하는 방식이 적절합니다."
-    elif persona_id == "grandfather-mentor":
-        body = "회상과 조언을 섞되, 기록에 없는 기억은 단정하지 않고 생활적 교훈 중심으로 요약하는 방식이 적절합니다."
-    else:
-        body = "핵심만 짚어서 답하되, 근거 없는 세부 기억은 만들지 않는 방식이 적절합니다."
 
-    tail = "이 응답은 이 기기 설정을 기준으로 개인화되었고, 정본 데이터층과 분리된 모델 선택 구조를 전제로 합니다."
-    if placement == "family_vault":
-        tail = "이 응답은 가족 금고 정본 레이어를 우선 참고하는 구조를 전제로 하며, 개인 기기 설정과는 분리될 수 있습니다."
-
-    return f"{lead}{body} {tail} 질문: {query}"
+def _quote_snippets(evidence_texts: list[str], limit: int = 2) -> str:
+    return " / ".join(f"「{t[:42]}…」" if len(t) > 42 else f"「{t}」"
+                      for t in evidence_texts[:limit]) or "「저장된 기록 없음」"
 
 
 def build_demo_chat_response(
@@ -266,11 +254,8 @@ def build_demo_chat_response(
             "inference_source": "rule_gate",
             "provider_name": "rule_gate",
             "provider_mode": "rule_gate",
-            "provider_output_preview": None,
             "selected_model": prompt_package["model_profile"],
             "retrieved_evidence": prompt_package["retrieved_evidence"],
-            "persona_preview": persona_markdown[:400],
-            "prompt_package": prompt_package,
         }
 
     request = InferenceRequest(
@@ -283,17 +268,11 @@ def build_demo_chat_response(
     if provider_response.mode not in {"mock", "unconfigured", "error"} and \
             len((provider_response.output_text or "").strip()) < 5:
         provider_response = provider.generate(request)
-    fallback_answer = render_demo_answer(
-        persona_id=persona_id,
-        evidence_lines=prompt_package["retrieved_evidence"],
-        query=query,
-        placement=prompt_package["model_profile"]["placement"],
-    )
-    should_prefer_fallback = provider_response.mode in {"mock", "unconfigured", "error"}
-    if should_prefer_fallback:
-        answer = fallback_answer
+    if provider_response.mode in {"mock", "unconfigured", "error"}:
+        # Phase 0: 실패를 밝힌다 — 데모 설명문을 답변인 척 내보내지 않는다
+        answer = PROVIDER_DOWN_TMPL.format(quotes=_quote_snippets(evidence_texts))
         answer_source = "fallback"
-        gate_action = "skipped_fallback"
+        gate_action = "provider_unavailable"
     else:
         # ── 출력 게이트 (Phase 1): 누수 제거 + 문장 단위 근거·엔티티 대조 ──
         gate = apply_output_gate(provider_response.output_text or "", effective_query,
@@ -310,9 +289,6 @@ def build_demo_chat_response(
         "inference_source": prompt_package["model_profile"]["placement"],
         "provider_name": provider_response.provider,
         "provider_mode": provider_response.mode,
-        "provider_output_preview": provider_response.output_text[:240] if provider_response.output_text else None,
         "selected_model": prompt_package["model_profile"],
         "retrieved_evidence": prompt_package["retrieved_evidence"],
-        "persona_preview": persona_markdown[:400],
-        "prompt_package": prompt_package,
     }

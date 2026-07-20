@@ -133,12 +133,15 @@ def quote_atoms(text: str) -> set[str]:
             for m in re.finditer(r"[‘'\"“]([^’'\"”]{2,40})[’'\"”]", text or "")}
 
 
-def unsupported_atoms(text: str, evidence_text: str, query: str) -> set[str]:
-    """숫자는 원자 일치, 인용구는 substring 대조(부분 인용 허용). {1,2,3}은 서수 허용."""
-    allowed_source = f"{evidence_text} {query}"
-    allowed_nums = num_atoms(allowed_source) | {"1", "2", "3"}
+def unsupported_atoms(text: str, evidence_text: str) -> set[str]:
+    """숫자는 원자 일치, 인용구는 substring 대조(부분 인용 허용). {1,2,3}은 서수 허용.
+
+    Phase 0: 검색된 증거만 신뢰한다. 질의에 등장한 값은 검증할 '주장'이지
+    근거가 아니다 — 질문에 날짜를 심고 복창시키는 우회를 막는다.
+    """
+    allowed_nums = num_atoms(evidence_text) | {"1", "2", "3"}
     unsupported = {n for n in num_atoms(text) if n not in allowed_nums}
-    unsupported |= {q for q in quote_atoms(text) if q not in allowed_source}
+    unsupported |= {q for q in quote_atoms(text) if q not in evidence_text}
     return unsupported
 
 

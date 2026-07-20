@@ -10,6 +10,8 @@ class AIDemoChatRequest(BaseModel):
 
 
 class AIDemoChatResponse(BaseModel):
+    """공개 채팅 응답 — 진단성 내부 데이터(원시 모델 출력·프롬프트·페르소나 원문)는
+    Phase 0에서 제거됨. 필요 시 개발 전용 라우트로만 노출할 것 (NEXT_AGENT_HANDOFF P1)."""
     answer: str
     answer_source: str
     # 규칙 게이트 메타 (rule_gate 경로: REFUSE/CLARIFY/CONFLICT/NO_RECORD, 게이트 조치)
@@ -19,11 +21,8 @@ class AIDemoChatResponse(BaseModel):
     inference_source: str
     provider_name: str
     provider_mode: str
-    provider_output_preview: str | None = None
     selected_model: dict
     retrieved_evidence: list[str]
-    persona_preview: str
-    prompt_package: dict
 
 
 class AIModelOption(BaseModel):

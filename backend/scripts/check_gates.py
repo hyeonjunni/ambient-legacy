@@ -33,6 +33,11 @@ def run_script(label: str, script: str) -> None:
     proc = subprocess.run([sys.executable, str(BACKEND / "scripts" / script)],
                           capture_output=True, text=True)
     last = (proc.stdout.strip().splitlines() or ["?"])[-1]
+    if proc.returncode != 0:
+        # 실패 원인은 대개 stderr(트레이스백)에 있다 — '?'만 보여주지 않는다 (Phase 0)
+        err_tail = " | ".join(proc.stderr.strip().splitlines()[-3:])
+        if err_tail:
+            last = f"{last} :: {err_tail}"
     check(label, proc.returncode == 0, last)
 
 

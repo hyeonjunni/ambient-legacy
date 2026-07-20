@@ -2720,8 +2720,12 @@ function describeGateBadge(gateAction) {
   if (gateAction === "all_dropped_quote" || gateAction === "fallback_quote") {
     return { text: "생성 문장 대신 기록 원문 인용으로 대체했어요", bg: "#FFFBEB", color: "#B45309" };
   }
+  if (gateAction === "provider_unavailable") {
+    return { text: "모델 응답을 받지 못해 기록 원문만 보여드려요", bg: "#FEF2F2", color: "#B91C1C" };
+  }
   if (gateAction === "pass") {
-    return { text: "모든 문장이 기록 근거로 확인됐어요", bg: "#ECFDF5", color: "#047857" };
+    // 실제 수행한 검증 범위만 말한다 — 숫자·시각·인용·이름(하드원자) 대조이지 전 문장 의미 검증이 아님
+    return { text: "숫자·시각·인용·이름을 기록과 대조했어요", bg: "#ECFDF5", color: "#047857" };
   }
   return null;
 }

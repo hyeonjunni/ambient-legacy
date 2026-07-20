@@ -95,16 +95,25 @@ def _evidence_has_kind(kind: str, query: str, evidence_text: str) -> bool:
 
 
 def _detect_time_conflict(evidence_texts: list[str]) -> tuple[str, str] | None:
-    """chunk별 시각 원자가 서로 다르면 모순으로 판정 (v1 범위: 시간)."""
+    """시각 원자를 '모든' chunk에 걸쳐 대조 — 값 집합이 다른 chunk가 있으면 모순.
+
+    Phase 0: 첫 2개 chunk만 비교하던 방식은 10시/10시/11시를 놓쳤다.
+    단일 chunk 안의 범위 표현(10시~11시)은 기록 간 모순이 아니므로 제외.
+    """
     per_chunk: list[set[str]] = []
     for text in evidence_texts:
         values = {a or b for a, b in re.findall(r"(\d{1,2})\s*시|(\d{1,2}):\d{2}", text) if (a or b)}
         if values:
             per_chunk.append(values)
-    if len(per_chunk) >= 2:
-        first, second = sorted(per_chunk[0])[0], sorted(per_chunk[1])[0]
-        if first != second:
-            return (f"{first}시", f"{second}시")
+    if len(per_chunk) < 2 or all(s == per_chunk[0] for s in per_chunk[1:]):
+        return None
+    ordered: list[str] = []
+    for values in per_chunk:
+        for v in sorted(values, key=int):
+            if v not in ordered:
+                ordered.append(v)
+    if len(ordered) >= 2:
+        return (f"{ordered[0]}시", f"{ordered[1]}시")
     return None
 
 

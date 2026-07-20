@@ -14,7 +14,7 @@ from app.ai.gates.textrules import content_tokens, korean_ok, strip_leaks, unsup
 
 def _unsupported_entities(sentence: str, allowed_source: str,
                           index: RoomEntityIndex) -> set[str]:
-    """이름 있는 장소 토큰·X씨/X님 인물 호칭이 (기록∪질문∪가족방 사전)에 없으면 미지원."""
+    """이름 있는 장소 토큰·X씨/X님 인물 호칭이 (기록∪가족방 사전)에 없으면 미지원."""
     bad: set[str] = set()
     for token in content_tokens(sentence):
         for suffix in PLACE_SUFFIXES:
@@ -49,7 +49,9 @@ def apply_output_gate(raw_answer: str, query: str, evidence_texts: list[str],
                       entity_index: RoomEntityIndex | None = None) -> GateResult:
     index = entity_index or RoomEntityIndex()
     evidence_joined = " ".join(evidence_texts)
-    allowed_source = f"{evidence_joined} {query}"
+    # Phase 0: 질의는 신뢰 소스가 아니다 — 질의 속 값은 검증 대상 주장일 뿐,
+    # 증거∪가족방 사전만 허용한다 (query 인자는 API 호환용으로 유지)
+    allowed_source = evidence_joined
     text, leaked = strip_leaks(raw_answer or "")
 
     if not text or not korean_ok(text):
@@ -63,7 +65,7 @@ def apply_output_gate(raw_answer: str, query: str, evidence_texts: list[str],
     dropped = 0
     found: list[str] = []
     for sentence in sentences:
-        bad = unsupported_atoms(sentence, evidence_joined, query)
+        bad = unsupported_atoms(sentence, evidence_joined)
         bad |= _unsupported_entities(sentence, allowed_source, index)
         if bad:
             dropped += 1

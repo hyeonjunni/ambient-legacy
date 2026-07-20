@@ -112,9 +112,14 @@ class StubProvider:
     def __init__(self):
         self.calls = 0
         self.script: list[str] = []
+        self.fail_next = False  # provider 장애 시뮬레이션 (mode="error")
 
     def generate(self, request):
         self.calls += 1
+        if self.fail_next:
+            self.fail_next = False
+            return InferenceResponse(provider="stub", mode="error", output_text="",
+                                     model_id=request.model_id)
         text = self.script.pop(0) if self.script else "기록에 있는 내용만 정리해 드렸습니다."
         return InferenceResponse(provider="stub", mode="remote", output_text=text,
                                  model_id=request.model_id)
@@ -189,6 +194,26 @@ res = chat("그때 그거 언제였지?")  # 접점 0 → CLARIFY → 재작성 
 check("모호 질문 → 재작성 후 정상 응답", "5월 3일" in res["answer"]
       and "llm_rewrite" in (res.get("gate_detail") or ""),
       f"calls+{stub.calls - before}, detail={res.get('gate_detail')}")
+
+print("⑦ Phase 0 — 진단 비노출·질의값 비신뢰·프로바이더 실패 명시화")
+stub.script = ["기록에는 2018년 여름 광안리 해변 산책이 남아 있습니다."]
+res = chat("부산 여행 기록 요약해줘.")
+check("진단 필드(provider_output_preview/persona_preview/prompt_package) 비노출",
+      all(k not in res for k in ("provider_output_preview", "persona_preview", "prompt_package")),
+      str([k for k in ("provider_output_preview", "persona_preview", "prompt_package") if k in res]))
+
+stub.script = ["부산 여행은 2018년 7월 15일이었습니다."]
+res = chat("부산 여행 7월 15일에 갔던 거 맞지?")  # 질문이 심은 날짜 — 근거 아님
+check("질의가 심은 '7월 15일' 복창 → 최종 답변에서 차단",
+      "7월 15일" not in res["answer"], res.get("gate_action", ""))
+
+stub.fail_next = True
+res = chat("부산 여행이 몇 년도였는지 알려줘.")  # ANSWER 라우트인데 provider 장애
+check("프로바이더 장애 → 명시적 안전 상태 (검증된 척 금지)",
+      res.get("gate_action") == "provider_unavailable"
+      and res["answer_source"] == "fallback"
+      and "받지 못해" in res["answer"] and "개인화" not in res["answer"],
+      f"{res.get('gate_action')}/{res['answer_source']}")
 
 print("④ 기록 없는 방 → NO_RECORD")
 with TestSession() as db:
